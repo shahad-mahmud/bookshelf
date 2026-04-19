@@ -67,12 +67,15 @@ export const libraryInvites = pgTable(
       'library_invites_accept_pair',
       sql`(${t.acceptedAt} IS NULL) = (${t.acceptedBy} IS NULL)`,
     ),
+    // Postgres requires IMMUTABLE functions in index predicates, so `now()` can't
+    // be part of the WHERE clause. fn_send_invite must revoke/delete expired
+    // invites before issuing a new one for the same email/phone.
     pendingEmail: uniqueIndex('idx_invites_pending_email')
       .on(t.libraryId, sql`lower(${t.invitedEmail})`)
-      .where(sql`${t.invitedEmail} IS NOT NULL AND ${t.acceptedAt} IS NULL AND ${t.revokedAt} IS NULL AND ${t.expiresAt} > now()`),
+      .where(sql`${t.invitedEmail} IS NOT NULL AND ${t.acceptedAt} IS NULL AND ${t.revokedAt} IS NULL`),
     pendingPhone: uniqueIndex('idx_invites_pending_phone')
       .on(t.libraryId, t.invitedPhone)
-      .where(sql`${t.invitedPhone} IS NOT NULL AND ${t.acceptedAt} IS NULL AND ${t.revokedAt} IS NULL AND ${t.expiresAt} > now()`),
+      .where(sql`${t.invitedPhone} IS NOT NULL AND ${t.acceptedAt} IS NULL AND ${t.revokedAt} IS NULL`),
   }),
 )
 

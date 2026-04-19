@@ -42,3 +42,8 @@ yarn-error.log*
 next-env.d.ts
 
 docs_local/*
+
+# Installed agent/skill caches — per-developer, not part of the project
+.agents/
+.claude/
+skills-lock.json

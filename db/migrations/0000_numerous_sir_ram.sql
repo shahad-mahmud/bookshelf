@@ -111,8 +111,11 @@ ALTER TABLE "loans" ADD CONSTRAINT "loans_book_library_fk" FOREIGN KEY ("book_id
 ALTER TABLE "loans" ADD CONSTRAINT "loans_borrower_library_fk" FOREIGN KEY ("borrower_id","library_id") REFERENCES "public"."borrowers"("id","library_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "library_invites_token_hash_key" ON "library_invites" USING btree ("token_hash");--> statement-breakpoint
 CREATE INDEX "idx_invites_library" ON "library_invites" USING btree ("library_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "idx_invites_pending_email" ON "library_invites" USING btree ("library_id",lower("invited_email")) WHERE "library_invites"."invited_email" IS NOT NULL AND "library_invites"."accepted_at" IS NULL AND "library_invites"."revoked_at" IS NULL AND "library_invites"."expires_at" > now();--> statement-breakpoint
-CREATE UNIQUE INDEX "idx_invites_pending_phone" ON "library_invites" USING btree ("library_id","invited_phone") WHERE "library_invites"."invited_phone" IS NOT NULL AND "library_invites"."accepted_at" IS NULL AND "library_invites"."revoked_at" IS NULL AND "library_invites"."expires_at" > now();--> statement-breakpoint
+-- Note: the `expires_at > now()` guard had to be dropped from the index predicate
+-- because Postgres only allows IMMUTABLE functions in index predicates. Callers of
+-- fn_send_invite should revoke or delete expired invites before re-issuing.
+CREATE UNIQUE INDEX "idx_invites_pending_email" ON "library_invites" USING btree ("library_id",lower("invited_email")) WHERE "library_invites"."invited_email" IS NOT NULL AND "library_invites"."accepted_at" IS NULL AND "library_invites"."revoked_at" IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "idx_invites_pending_phone" ON "library_invites" USING btree ("library_id","invited_phone") WHERE "library_invites"."invited_phone" IS NOT NULL AND "library_invites"."accepted_at" IS NULL AND "library_invites"."revoked_at" IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "idx_library_members_one_owner" ON "library_members" USING btree ("library_id") WHERE role = 'owner';--> statement-breakpoint
 CREATE INDEX "idx_library_members_user" ON "library_members" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "idx_books_library_isbn" ON "books" USING btree ("library_id","isbn") WHERE "books"."isbn" IS NOT NULL;--> statement-breakpoint

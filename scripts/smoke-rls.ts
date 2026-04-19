@@ -93,7 +93,10 @@ async function main() {
       `FORCE RLS on all 8 public tables (got: ${names.join(',')})`,
     )
   } finally {
-    // Tear down (CASCADE cleans everything)
+    // Tear down: delete libraries first (cascades to members + catalog).
+    // Can't delete auth.users directly because the prevent_strand_library
+    // trigger blocks removing the sole owner before the library is gone.
+    await sql`delete from public.libraries where created_by in (${userA}, ${userB})`
     await sql`delete from auth.users where id in (${userA}, ${userB})`
   }
 }
