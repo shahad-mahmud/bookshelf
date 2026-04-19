@@ -1,8 +1,6 @@
 CREATE TYPE "public"."library_role" AS ENUM('owner', 'admin');--> statement-breakpoint
 CREATE TYPE "public"."acquisition_status" AS ENUM('owned', 'wishlist');--> statement-breakpoint
-CREATE TABLE "auth"."users" (
-	"id" uuid PRIMARY KEY NOT NULL
-);
+-- auth.users is managed by Supabase; do not create. The FK references below assume it exists.
 --> statement-breakpoint
 CREATE TABLE "profiles" (
 	"id" uuid PRIMARY KEY NOT NULL,
