@@ -6,7 +6,7 @@
 | **Project** | Bookshelf |
 | **Spec** | 1.1 — Foundation (auth, schema, RLS, session) |
 | **Phase** | Phase 1, first of three specs (1.1 Foundation → 1.2 Library + catalog → 1.3 ISBN + discovery) |
-| **Status** | Draft — pending user review |
+| **Status** | 1.1 Implemented — foundation shipped on branch `feat/spec-1.1-foundation` |
 
 ## 1. Context & scope expansions from the original plan
 
