@@ -6,6 +6,10 @@ import { env } from '@/lib/env'
 import * as schema from '@/db/schema'
 import { createServerClient } from '@/lib/supabase/server'
 
+// dbSystem lives in db/client-system.ts so tsx scripts can use it
+// without pulling in the Next-only `server-only` import at the top of this file.
+export { dbSystem } from './client-system'
+
 /**
  * User-scoped Drizzle client. Sets request.jwt.claims inside a transaction so
  * RLS policies see auth.uid() correctly. Must be called from code that runs
@@ -46,16 +50,3 @@ export async function dbAsUser() {
   }
 }
 
-/**
- * System-level Drizzle client. Connects as the postgres superuser via
- * DIRECT_URL, bypassing RLS. Never import from app/, lib/, or components/.
- * Intended for db/seed.ts and scripts/.
- */
-export function dbSystem() {
-  const client = postgres(env.DIRECT_URL, { max: 1 })
-  const db = drizzle(client, { schema })
-  return {
-    db,
-    close: () => client.end({ timeout: 5 }),
-  }
-}

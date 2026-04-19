@@ -13,6 +13,12 @@ const eslintConfig = defineConfig([
         {
           paths: [
             {
+              name: "@/db/client-system",
+              importNames: ["dbSystem"],
+              message:
+                "dbSystem bypasses RLS. Use dbAsUser() in app code. dbSystem is for scripts/ and db/seed.ts only.",
+            },
+            {
               name: "@/db/client-server",
               importNames: ["dbSystem"],
               message:
