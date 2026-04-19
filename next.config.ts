@@ -1,15 +1,28 @@
 import type { NextConfig } from 'next'
 
-const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
-  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
-  : ''
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  throw new Error('NEXT_PUBLIC_SUPABASE_URL must be set before running next build/dev')
+}
+const supabaseHost = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+const extraOrigins = (process.env.ADDITIONAL_ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
 
 const allowedOrigins = [
   'localhost:3000',
-  // Add production + preview hostnames here once deployed:
-  // 'bookshelf.example.com',
-  // '*.vercel.app',
+  ...(siteUrl ? [new URL(siteUrl).host] : []),
+  ...extraOrigins,
 ]
+
+if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 1) {
+  console.warn(
+    'WARNING: Server Actions allowedOrigins only contains localhost:3000. ' +
+      'Set NEXT_PUBLIC_SITE_URL or ADDITIONAL_ALLOWED_ORIGINS for production.',
+  )
+}
 
 const csp = [
   "default-src 'self'",
@@ -43,7 +56,9 @@ const nextConfig: NextConfig = {
         source: '/:path*',
         headers: [
           { key: 'Content-Security-Policy', value: csp },
-          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          // Note: `preload` can be added back once the production domain is finalized.
+          // HSTS preload commits the domain to browser preload lists permanently — hard to undo.
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
