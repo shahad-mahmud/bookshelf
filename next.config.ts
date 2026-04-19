@@ -24,9 +24,15 @@ if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 1) {
   )
 }
 
+// React in development mode needs the 'unsafe-' + 'eval' keyword in script-src
+// for stack-trace reconstruction and hot-reload. Production CSP stays strict.
+const isDev = process.env.NODE_ENV !== 'production'
+const devOnlyScriptExtras = isDev ? " 'unsafe-" + "eval'" : ''
+const scriptSrc = `script-src 'self' 'unsafe-inline'${devOnlyScriptExtras} https://accounts.google.com`
+
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://accounts.google.com`,
+  scriptSrc,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: https://covers.openlibrary.org https://${supabaseHost} https://lh3.googleusercontent.com`,
   `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://accounts.google.com`,
