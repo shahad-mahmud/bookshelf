@@ -4,7 +4,8 @@ import { useActionState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { loginAction, type ActionState } from '@/lib/actions/auth'
+import { loginAction } from '@/lib/actions/auth'
+import type { ActionState } from '@/lib/actions/auth-schema'
 
 export function LoginForm({ next }: { next?: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(loginAction, { ok: true })
