@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { env } from '@/lib/env'
+import { serverEnv } from '@/lib/env-server'
 import * as schema from '@/db/schema'
 
 /**
@@ -12,7 +12,7 @@ import * as schema from '@/db/schema'
  * without the Next.js resolver.
  */
 export function dbSystem() {
-  const client = postgres(env.DIRECT_URL, { max: 1 })
+  const client = postgres(serverEnv.DIRECT_URL, { max: 1 })
   const db = drizzle(client, { schema })
   return {
     db,

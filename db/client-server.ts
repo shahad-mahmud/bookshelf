@@ -2,7 +2,7 @@ import 'server-only'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { sql } from 'drizzle-orm'
-import { env } from '@/lib/env'
+import { serverEnv } from '@/lib/env-server'
 import * as schema from '@/db/schema'
 import { createServerClient } from '@/lib/supabase/server'
 
@@ -22,7 +22,7 @@ export async function dbAsUser() {
     throw new Error('dbAsUser called without a valid session')
   }
 
-  const client = postgres(env.DATABASE_URL, {
+  const client = postgres(serverEnv.DATABASE_URL, {
     prepare: false, // required for Supabase Transaction-mode pooler
     max: 1,
     idle_timeout: 10,
