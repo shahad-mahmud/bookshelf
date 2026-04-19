@@ -3,10 +3,10 @@ import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 describe('env validation', () => {
   const originalEnv = { ...process.env }
   beforeEach(() => {
-    process.env = { ...originalEnv }
+    process.env = {}   // clean baseline — each test sets only what it needs
   })
   afterEach(() => {
-    process.env = { ...originalEnv }
+    process.env = originalEnv   // restore for other test files
   })
 
   it('throws when DATABASE_URL is missing', async () => {
@@ -35,6 +35,26 @@ describe('env validation', () => {
     process.env.DEFAULT_CURRENCY = 'BDT'
     const mod = await import('./env?case=valid')
     expect(mod.env.DATABASE_URL).toBe('postgres://pool')
+    expect(mod.env.DEFAULT_CURRENCY).toBe('BDT')
+  })
+
+  it('defaults DEFAULT_CURRENCY to BDT when empty string', async () => {
+    process.env.DATABASE_URL = 'postgres://pool'
+    process.env.DIRECT_URL = 'postgres://direct'
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://x.supabase.co'
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anonkey'
+    process.env.DEFAULT_CURRENCY = ''
+    const mod = await import('./env?case=default-currency-empty')
+    expect(mod.env.DEFAULT_CURRENCY).toBe('BDT')
+  })
+
+  it('defaults DEFAULT_CURRENCY to BDT when unset', async () => {
+    process.env.DATABASE_URL = 'postgres://pool'
+    process.env.DIRECT_URL = 'postgres://direct'
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://x.supabase.co'
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anonkey'
+    delete process.env.DEFAULT_CURRENCY
+    const mod = await import('./env?case=default-currency-unset')
     expect(mod.env.DEFAULT_CURRENCY).toBe('BDT')
   })
 })

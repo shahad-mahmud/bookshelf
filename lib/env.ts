@@ -5,7 +5,10 @@ const schema = z.object({
   DIRECT_URL: z.string().min(1),
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-  DEFAULT_CURRENCY: z.string().length(3).default('BDT'),
+  DEFAULT_CURRENCY: z.preprocess(
+    (v) => (v === '' || v === undefined ? undefined : v),
+    z.string().length(3).default('BDT'),
+  ),
 })
 
 const parsed = schema.safeParse(process.env)
