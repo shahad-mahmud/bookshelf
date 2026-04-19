@@ -1,0 +1,16 @@
+ALTER TABLE public.profiles         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles         FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.libraries        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.libraries        FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.library_members  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.library_members  FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.library_invites  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.library_invites  FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.currencies       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.currencies       FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.borrowers        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.borrowers        FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.books            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.books            FORCE  ROW LEVEL SECURITY;
+ALTER TABLE public.loans            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.loans            FORCE  ROW LEVEL SECURITY;
