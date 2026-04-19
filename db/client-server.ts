@@ -4,14 +4,7 @@ import postgres from 'postgres'
 import { sql } from 'drizzle-orm'
 import { env } from '@/lib/env'
 import * as schema from '@/db/schema'
-
-// TODO(Task 16): replace this stub with: import { createServerClient } from '@/lib/supabase/server'
-const createServerClient = async () => ({
-  auth: {
-    getSession: async () =>
-      ({ data: { session: null as null | { user: { id: string; email?: string }; access_token: string } }, error: null as Error | null }),
-  },
-})
+import { createServerClient } from '@/lib/supabase/server'
 
 /**
  * User-scoped Drizzle client. Sets request.jwt.claims inside a transaction so
