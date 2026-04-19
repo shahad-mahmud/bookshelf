@@ -1,12 +1,17 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 
+// Cache-busting query on dynamic imports defeats Vitest's ESM module cache.
+// TypeScript can't resolve the query variants, so silence each import site.
+type EnvModule = typeof import('./env')
+
 describe('env validation', () => {
   const originalEnv = { ...process.env }
   beforeEach(() => {
-    process.env = {}   // clean baseline — each test sets only what it needs
+    // Clean baseline (keep NODE_ENV for libraries that read it).
+    process.env = { NODE_ENV: originalEnv.NODE_ENV ?? 'test' } as NodeJS.ProcessEnv
   })
   afterEach(() => {
-    process.env = originalEnv   // restore for other test files
+    process.env = originalEnv
   })
 
   it('throws when DATABASE_URL is missing', async () => {
@@ -14,6 +19,7 @@ describe('env validation', () => {
     process.env.DIRECT_URL = 'postgres://x'
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://x.supabase.co'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'k'
+    // @ts-expect-error — cache-busting query string
     await expect(import('./env?case=missing-db-url')).rejects.toThrow(/DATABASE_URL/)
   })
 
@@ -22,6 +28,7 @@ describe('env validation', () => {
     delete process.env.DIRECT_URL
     delete process.env.NEXT_PUBLIC_SUPABASE_URL
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    // @ts-expect-error — cache-busting query string
     await expect(import('./env?case=missing-multi')).rejects.toThrow(
       /DATABASE_URL[\s\S]*DIRECT_URL[\s\S]*NEXT_PUBLIC_SUPABASE_URL[\s\S]*NEXT_PUBLIC_SUPABASE_ANON_KEY/,
     )
@@ -33,7 +40,8 @@ describe('env validation', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://x.supabase.co'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anonkey'
     process.env.DEFAULT_CURRENCY = 'BDT'
-    const mod = await import('./env?case=valid')
+    // @ts-expect-error — cache-busting query string
+    const mod: EnvModule = await import('./env?case=valid')
     expect(mod.env.DATABASE_URL).toBe('postgres://pool')
     expect(mod.env.DEFAULT_CURRENCY).toBe('BDT')
   })
@@ -44,7 +52,8 @@ describe('env validation', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://x.supabase.co'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anonkey'
     process.env.DEFAULT_CURRENCY = ''
-    const mod = await import('./env?case=default-currency-empty')
+    // @ts-expect-error — cache-busting query string
+    const mod: EnvModule = await import('./env?case=default-currency-empty')
     expect(mod.env.DEFAULT_CURRENCY).toBe('BDT')
   })
 
@@ -54,7 +63,8 @@ describe('env validation', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://x.supabase.co'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anonkey'
     delete process.env.DEFAULT_CURRENCY
-    const mod = await import('./env?case=default-currency-unset')
+    // @ts-expect-error — cache-busting query string
+    const mod: EnvModule = await import('./env?case=default-currency-unset')
     expect(mod.env.DEFAULT_CURRENCY).toBe('BDT')
   })
 })
