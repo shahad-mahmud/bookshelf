@@ -18,7 +18,7 @@ describe('env validation', () => {
     delete process.env.DATABASE_URL
     process.env.DIRECT_URL = 'postgres://x'
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://x.supabase.co'
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'k'
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'k'
     // @ts-expect-error — cache-busting query string
     await expect(import('./env?case=missing-db-url')).rejects.toThrow(/DATABASE_URL/)
   })
@@ -27,10 +27,10 @@ describe('env validation', () => {
     delete process.env.DATABASE_URL
     delete process.env.DIRECT_URL
     delete process.env.NEXT_PUBLIC_SUPABASE_URL
-    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
     // @ts-expect-error — cache-busting query string
     await expect(import('./env?case=missing-multi')).rejects.toThrow(
-      /DATABASE_URL[\s\S]*DIRECT_URL[\s\S]*NEXT_PUBLIC_SUPABASE_URL[\s\S]*NEXT_PUBLIC_SUPABASE_ANON_KEY/,
+      /DATABASE_URL[\s\S]*DIRECT_URL[\s\S]*NEXT_PUBLIC_SUPABASE_URL[\s\S]*NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/,
     )
   })
 
@@ -38,7 +38,7 @@ describe('env validation', () => {
     process.env.DATABASE_URL = 'postgres://pool'
     process.env.DIRECT_URL = 'postgres://direct'
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://x.supabase.co'
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anonkey'
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'anonkey'
     process.env.DEFAULT_CURRENCY = 'BDT'
     // @ts-expect-error — cache-busting query string
     const mod: EnvModule = await import('./env?case=valid')
@@ -50,7 +50,7 @@ describe('env validation', () => {
     process.env.DATABASE_URL = 'postgres://pool'
     process.env.DIRECT_URL = 'postgres://direct'
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://x.supabase.co'
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anonkey'
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'anonkey'
     process.env.DEFAULT_CURRENCY = ''
     // @ts-expect-error — cache-busting query string
     const mod: EnvModule = await import('./env?case=default-currency-empty')
@@ -61,7 +61,7 @@ describe('env validation', () => {
     process.env.DATABASE_URL = 'postgres://pool'
     process.env.DIRECT_URL = 'postgres://direct'
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://x.supabase.co'
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anonkey'
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'anonkey'
     delete process.env.DEFAULT_CURRENCY
     // @ts-expect-error — cache-busting query string
     const mod: EnvModule = await import('./env?case=default-currency-unset')
