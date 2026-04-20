@@ -60,6 +60,8 @@ describe('server env validation (lib/env-server.ts)', () => {
 
   it('throws when DATABASE_URL is missing', async () => {
     process.env.DIRECT_URL = 'postgres://x'
+    process.env.RESEND_API_KEY = 're_test'
+    process.env.EMAIL_FROM = 'noreply@example.com'
     // @ts-expect-error — cache-busting query string
     await expect(import('./env-server?case=missing-db')).rejects.toThrow(/DATABASE_URL/)
   })
@@ -67,15 +69,19 @@ describe('server env validation (lib/env-server.ts)', () => {
   it('throws with all missing server vars listed', async () => {
     delete process.env.DATABASE_URL
     delete process.env.DIRECT_URL
+    delete process.env.RESEND_API_KEY
+    delete process.env.EMAIL_FROM
     // @ts-expect-error — cache-busting query string
     await expect(import('./env-server?case=missing-multi')).rejects.toThrow(
-      /DATABASE_URL[\s\S]*DIRECT_URL/,
+      /DATABASE_URL[\s\S]*DIRECT_URL[\s\S]*RESEND_API_KEY[\s\S]*EMAIL_FROM/,
     )
   })
 
   it('parses valid server env and defaults DEFAULT_CURRENCY', async () => {
     process.env.DATABASE_URL = 'postgres://pool'
     process.env.DIRECT_URL = 'postgres://direct'
+    process.env.RESEND_API_KEY = 're_test'
+    process.env.EMAIL_FROM = 'noreply@example.com'
     // @ts-expect-error — cache-busting query string
     const mod: ServerEnvModule = await import('./env-server?case=valid')
     expect(mod.serverEnv.DATABASE_URL).toBe('postgres://pool')
@@ -85,9 +91,28 @@ describe('server env validation (lib/env-server.ts)', () => {
   it('defaults DEFAULT_CURRENCY on empty string', async () => {
     process.env.DATABASE_URL = 'postgres://pool'
     process.env.DIRECT_URL = 'postgres://direct'
+    process.env.RESEND_API_KEY = 're_test'
+    process.env.EMAIL_FROM = 'noreply@example.com'
     process.env.DEFAULT_CURRENCY = ''
     // @ts-expect-error — cache-busting query string
     const mod: ServerEnvModule = await import('./env-server?case=empty-currency')
     expect(mod.serverEnv.DEFAULT_CURRENCY).toBe('BDT')
+  })
+
+  it('throws when RESEND_API_KEY is missing', async () => {
+    process.env.DATABASE_URL = 'postgres://x'
+    process.env.DIRECT_URL = 'postgres://y'
+    process.env.EMAIL_FROM = 'noreply@example.com'
+    // @ts-expect-error — cache-busting query string
+    await expect(import('./env-server?case=missing-resend')).rejects.toThrow(/RESEND_API_KEY/)
+  })
+
+  it('throws when EMAIL_FROM is not a valid email', async () => {
+    process.env.DATABASE_URL = 'postgres://x'
+    process.env.DIRECT_URL = 'postgres://y'
+    process.env.RESEND_API_KEY = 're_abc'
+    process.env.EMAIL_FROM = 'not-an-email'
+    // @ts-expect-error — cache-busting query string
+    await expect(import('./env-server?case=bad-email-from')).rejects.toThrow(/EMAIL_FROM/)
   })
 })

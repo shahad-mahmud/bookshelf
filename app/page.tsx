@@ -1,47 +1,52 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
-import { dbAsUser } from '@/db/client-server'
-import { profiles } from '@/db/schema/auth'
-import { libraries, libraryMembers } from '@/db/schema/libraries'
-import { AppHeader } from '@/components/app-header'
 import { createServerClient } from '@/lib/supabase/server'
+import { dbAsUser } from '@/db/client-server'
+import { getCurrentLibrary } from '@/lib/library/current'
+import { profiles } from '@/db/schema/auth'
+import { AppHeader } from '@/components/app-header'
 
 export default async function HomePage() {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const db = await dbAsUser()
-  const rows = await db.query(async (tx) => {
-    const profile = await tx.select().from(profiles).where(eq(profiles.id, user.id)).limit(1)
-    const member = await tx
-      .select({
-        libraryId: libraryMembers.libraryId,
-        libraryName: libraries.name,
-        role: libraryMembers.role,
-      })
-      .from(libraryMembers)
-      .innerJoin(libraries, eq(libraries.id, libraryMembers.libraryId))
-      .where(eq(libraryMembers.userId, user.id))
-      .limit(1)
-    return { profile: profile[0], member: member[0] }
-  })
+  const [current, db] = await Promise.all([getCurrentLibrary(), dbAsUser()])
+  const profile = await db.query((tx) =>
+    tx.select().from(profiles).where(eq(profiles.id, user.id)).limit(1),
+  ).then((r) => r[0])
 
   return (
     <>
-      <AppHeader displayName={rows.profile?.displayName ?? null} email={rows.profile?.email ?? null} />
+      <AppHeader displayName={profile?.displayName ?? null} email={profile?.email ?? null} />
       <main className="mx-auto max-w-3xl p-6">
-        <div className="rounded-lg border bg-card p-6">
+        <div className="rounded-xl border bg-card p-6">
           <h1 className="text-2xl font-semibold">
-            Hello, {rows.profile?.displayName ?? 'friend'}.
+            Hello, {profile?.displayName ?? 'friend'}.
           </h1>
-          <p className="mt-2 text-muted-foreground">
-            You&apos;re in <span className="font-medium text-foreground">{rows.member?.libraryName ?? '(no library)'}</span>
-            {rows.member ? <> as <span className="font-medium">{rows.member.role}</span>.</> : null}
+          <p className="mt-1 text-muted-foreground">
+            You&apos;re in{' '}
+            <span className="font-medium text-foreground">{current.name}</span>{' '}
+            as <span className="font-medium">{current.role}</span>.
           </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Signed in as {rows.profile?.email}.
-          </p>
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <Link
+            href="/books"
+            className="group flex flex-col gap-1.5 rounded-xl border bg-card p-5 transition-colors hover:bg-muted/50"
+          >
+            <span className="text-lg font-semibold group-hover:text-primary">Books</span>
+            <span className="text-sm text-muted-foreground">Browse and manage your book catalog.</span>
+          </Link>
+          <Link
+            href="/borrowers"
+            className="group flex flex-col gap-1.5 rounded-xl border bg-card p-5 transition-colors hover:bg-muted/50"
+          >
+            <span className="text-lg font-semibold group-hover:text-primary">Borrowers</span>
+            <span className="text-sm text-muted-foreground">Track people who borrow from your library.</span>
+          </Link>
         </div>
       </main>
     </>

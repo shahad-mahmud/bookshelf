@@ -61,6 +61,9 @@ CREATE POLICY members_insert_initial_owner ON public.library_members FOR INSERT
     )
   );
 
+CREATE POLICY members_update_self_demote ON public.library_members FOR UPDATE USING (user_id = auth.uid() AND role = 'owner') WITH CHECK (user_id = auth.uid());
+CREATE POLICY members_update_admin_or_owner ON public.library_members FOR UPDATE USING (public.fn_library_role(library_id) IN ('owner','admin')) WITH CHECK (public.fn_library_role(library_id) IN ('owner','admin'));
+
 CREATE POLICY members_delete_self ON public.library_members FOR DELETE USING (user_id = auth.uid() AND role = 'admin');
 CREATE POLICY members_delete_admin ON public.library_members FOR DELETE USING (
   role = 'admin'

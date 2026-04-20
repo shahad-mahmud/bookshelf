@@ -24,9 +24,20 @@ const eslintConfig = defineConfig([
               message:
                 "dbSystem bypasses RLS. Use dbAsUser() in app code. dbSystem is for scripts/ and db/seed.ts only.",
             },
+            {
+              name: "resend",
+              message:
+                "Import resend only inside lib/email/. Use the email helpers from @/lib/email instead.",
+            },
           ],
         },
       ],
+    },
+  },
+  {
+    files: ["lib/email/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": "off",
     },
   },
   // Override default ignores of eslint-config-next.

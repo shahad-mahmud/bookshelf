@@ -6,6 +6,7 @@ export default defineConfig({
     environment: 'node',
     include: ['**/*.test.ts', '**/*.test.tsx'],
     pool: 'forks',    // explicit: env-touching tests require file isolation
+    setupFiles: ['.vitest/setup.ts'],
   },
   resolve: {
     alias: {
