@@ -11,6 +11,8 @@ import { z } from 'zod'
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
   DIRECT_URL: z.string().min(1),
+  RESEND_API_KEY: z.string().min(1),
+  EMAIL_FROM: z.email(),
   ADDITIONAL_ALLOWED_ORIGINS: z.string().optional(),
   DEFAULT_CURRENCY: z.preprocess(
     (v) => (v === '' || v === undefined ? undefined : v),
