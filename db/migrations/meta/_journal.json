@@ -43,6 +43,13 @@
       "when": 1776602141591,
       "tag": "0005_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776602141592,
+      "tag": "0006_lookup_invite",
+      "breakpoints": true
     }
   ]
 }
