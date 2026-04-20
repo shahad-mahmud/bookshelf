@@ -7,6 +7,7 @@ import { Check, ChevronDown, Plus, Settings } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -44,13 +45,15 @@ export function LibrarySwitcher({
         <ChevronDown className="h-3.5 w-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Your libraries</DropdownMenuLabel>
-        {libraries.map((lib) => (
-          <DropdownMenuItem key={lib.id} onClick={() => switchTo(lib.id)}>
-            <span className="flex-1 truncate">{lib.name}</span>
-            {lib.id === current.id ? <Check className="h-4 w-4" /> : null}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Your libraries</DropdownMenuLabel>
+          {libraries.map((lib) => (
+            <DropdownMenuItem key={lib.id} onClick={() => switchTo(lib.id)}>
+              <span className="flex-1 truncate">{lib.name}</span>
+              {lib.id === current.id ? <Check className="h-4 w-4" /> : null}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           render={<Link href="/libraries/new" className="flex items-center gap-2" />}
