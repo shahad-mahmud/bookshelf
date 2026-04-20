@@ -47,3 +47,6 @@ docs_local/*
 .agents/
 .claude/
 skills-lock.json
+
+# Git worktrees
+.worktrees/
