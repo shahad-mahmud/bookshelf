@@ -81,12 +81,15 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   IF EXISTS (SELECT 1 FROM public.libraries WHERE id = OLD.library_id) THEN
+    -- Only prevent deletion of owner if no other owner exists.
+    -- Allow demotion (UPDATE owner->admin) to proceed, as it may be part of a transfer.
     IF OLD.role = 'owner'
+       AND TG_OP = 'DELETE'
        AND NOT EXISTS (
          SELECT 1 FROM public.library_members
           WHERE library_id = OLD.library_id
             AND role = 'owner'
-            AND (user_id <> OLD.user_id OR TG_OP = 'UPDATE' AND NEW.role = 'owner')
+            AND user_id <> OLD.user_id
        )
     THEN
       RAISE EXCEPTION 'Cannot leave library % without an owner', OLD.library_id;

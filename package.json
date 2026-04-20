@@ -16,7 +16,8 @@
     "db:seed": "tsx db/seed.ts",
     "db:apply": "tsx scripts/apply-migrations.ts",
     "db:reset": "tsx scripts/db-reset.ts",
-    "smoke:rls": "tsx scripts/smoke-rls.ts"
+    "smoke:rls": "tsx scripts/smoke-rls.ts",
+    "smoke:invite": "tsx scripts/smoke-invite.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",
@@ -36,6 +37,7 @@
     "react-dom": "19.2.4",
     "react-hook-form": "^7.72.1",
     "resend": "^6.12.0",
+    "server-only": "^0.0.1",
     "shadcn": "^4.3.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
