@@ -18,7 +18,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
         <Button type="submit" disabled={pending}>
           {pending ? 'Joining...' : 'Accept and join'}
         </Button>
-        <Button variant="outline" render={<Link href="/" />}>
+        <Button variant="outline" nativeButton={false} render={<Link href="/" />}>
           Decline
         </Button>
       </div>

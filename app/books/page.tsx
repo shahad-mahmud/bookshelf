@@ -34,7 +34,7 @@ export default async function BooksPage() {
       <main className="mx-auto max-w-3xl p-6">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Books</h1>
-          <Button render={<Link href="/books/new" />}>Add book</Button>
+          <Button nativeButton={false} render={<Link href="/books/new" />}>Add book</Button>
         </div>
 
         {allBooks.length === 0 ? (

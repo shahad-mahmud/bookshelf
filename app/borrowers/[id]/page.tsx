@@ -54,7 +54,7 @@ export default async function BorrowerDetailPage({
             ) : null}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" render={<Link href={`/borrowers/${borrower.id}/edit`} />}>
+            <Button variant="outline" nativeButton={false} render={<Link href={`/borrowers/${borrower.id}/edit`} />}>
               Edit
             </Button>
             <DeleteBorrowerDialog borrowerId={borrower.id} libraryId={current.id} />

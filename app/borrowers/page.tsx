@@ -33,7 +33,7 @@ export default async function BorrowersPage() {
       <main className="mx-auto max-w-3xl p-6">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Borrowers</h1>
-          <Button render={<Link href="/borrowers/new" />}>Add borrower</Button>
+          <Button nativeButton={false} render={<Link href="/borrowers/new" />}>Add borrower</Button>
         </div>
 
         {allBorrowers.length === 0 ? (

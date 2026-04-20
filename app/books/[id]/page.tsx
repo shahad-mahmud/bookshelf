@@ -65,7 +65,7 @@ export default async function BookDetailPage({
             </span>
 
             <div className="mt-4 flex gap-2">
-              <Button variant="outline" render={<Link href={`/books/${book.id}/edit`} />}>
+              <Button variant="outline" nativeButton={false} render={<Link href={`/books/${book.id}/edit`} />}>
                 Edit
               </Button>
               <DeleteBookDialog bookId={book.id} libraryId={current.id} />
