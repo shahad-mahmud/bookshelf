@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bookSchema } from './book-schema'
+import { bookSchema, isbnLookupSchema } from './book-schema'
 
 const validBase = {
   libraryId: '00000000-0000-0000-0000-000000000000',
@@ -72,5 +72,17 @@ describe('bookSchema', () => {
       expect(result.data.isbn).toBeUndefined()
       expect(result.data.notes).toBeUndefined()
     }
+  })
+})
+
+describe('isbnLookupSchema', () => {
+  it('accepts a valid ISBN-10', () => {
+    expect(isbnLookupSchema.safeParse({ isbn: '0141439580' }).success).toBe(true)
+  })
+  it('accepts a valid ISBN-13', () => {
+    expect(isbnLookupSchema.safeParse({ isbn: '9780141439587' }).success).toBe(true)
+  })
+  it('rejects empty string', () => {
+    expect(isbnLookupSchema.safeParse({ isbn: '' }).success).toBe(false)
   })
 })
