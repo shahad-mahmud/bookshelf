@@ -62,7 +62,7 @@ export function TransferOwnershipDropdown({ libraryId, admins }: Props) {
         <form action={formAction} className="space-y-4">
           <input type="hidden" name="libraryId" value={libraryId} />
           <input type="hidden" name="newOwnerUserId" value={selectedUserId} />
-          <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+          <Select value={selectedUserId} onValueChange={(v) => setSelectedUserId(v ?? '')}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select a member" />
             </SelectTrigger>

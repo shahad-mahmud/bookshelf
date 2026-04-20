@@ -23,7 +23,7 @@ export default async function LibraryMembersPage({ params }: Props) {
 
   const db = await dbAsUser()
 
-  const { members, viewerRole, invites } = await db.query(async (tx) => {
+  const queryResult = await db.query(async (tx) => {
     // Verify viewer is a member and get their role
     const viewerRows = await tx
       .select({ role: libraryMembers.role })
@@ -73,12 +73,16 @@ export default async function LibraryMembersPage({ params }: Props) {
     return { members, viewerRole, invites }
   })
 
-  if (!members) notFound()
+  if (!queryResult) notFound()
+
+  const { members, viewerRole, invites } = queryResult
 
   const viewerUserId = user.id
+  type MemberRow = (typeof members)[number]
+
   const admins = members
-    .filter((m) => m.role === 'admin')
-    .map((m) => ({
+    .filter((m: MemberRow) => m.role === 'admin')
+    .map((m: MemberRow) => ({
       userId: m.userId,
       displayName: m.displayName,
       email: m.email,
@@ -94,7 +98,7 @@ export default async function LibraryMembersPage({ params }: Props) {
           )}
         </div>
         <div className="divide-y">
-          {members.map((member) => (
+          {members.map((member: MemberRow) => (
             <MemberRow
               key={member.userId}
               libraryId={id}
@@ -117,7 +121,7 @@ export default async function LibraryMembersPage({ params }: Props) {
           <p className="text-sm text-muted-foreground">No pending invites.</p>
         ) : (
           <div className="divide-y">
-            {invites.map((invite) => (
+            {invites.map((invite: (typeof invites)[number]) => (
               <PendingInviteRow
                 key={invite.id}
                 inviteId={invite.id}
