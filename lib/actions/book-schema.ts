@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { IsbnLookupResult } from '@/lib/openlibrary'
 
 const emptyToUndef = (v: unknown) => (v === '' || v === null ? undefined : v)
 
@@ -34,3 +35,9 @@ export const bookIdSchema = z.object({
   id: z.uuid(),
   libraryId: z.uuid(),
 })
+
+export const isbnLookupSchema = z.object({ isbn: z.string().min(1) })
+
+export type IsbnLookupState =
+  | { ok: true; result: IsbnLookupResult }
+  | { ok: false; error: string }

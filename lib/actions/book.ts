@@ -4,8 +4,10 @@ import { redirect } from 'next/navigation'
 import { eq, and } from 'drizzle-orm'
 import { dbAsUser } from '@/db/client-server'
 import { books } from '@/db/schema/catalog'
-import { bookSchema, bookIdSchema } from './book-schema'
+import { bookSchema, bookIdSchema, isbnLookupSchema } from './book-schema'
+import { lookupIsbn } from '@/lib/openlibrary'
 import type { ActionState } from './library-schema'
+import type { IsbnLookupState } from './book-schema'
 
 export async function createBookAction(
   _prev: ActionState,
@@ -64,4 +66,19 @@ export async function deleteBookAction(
   )
 
   redirect('/books')
+}
+
+export async function lookupIsbnAction(
+  _state: IsbnLookupState | null,
+  formData: FormData,
+): Promise<IsbnLookupState> {
+  const parsed = isbnLookupSchema.safeParse({ isbn: formData.get('isbn') })
+  if (!parsed.success) {
+    return { ok: false, error: 'ISBN is required.' }
+  }
+  const result = await lookupIsbn(parsed.data.isbn)
+  if (!result) {
+    return { ok: false, error: 'No book found for this ISBN.' }
+  }
+  return { ok: true, result }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useState, useActionState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,9 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { IsbnLookup } from '@/components/book/isbn-lookup'
 import { createBookAction, updateBookAction } from '@/lib/actions/book'
 import type { ActionState } from '@/lib/actions/library-schema'
 import type { Book, Currency } from '@/db/schema/catalog'
+import type { IsbnLookupResult } from '@/lib/openlibrary'
 
 type Props = {
   libraryId: string
@@ -28,12 +30,25 @@ export function BookForm({ libraryId, currencies, mode, initial }: Props) {
   const action = mode === 'create' ? createBookAction : updateBookAction
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, { ok: true })
 
+  const [title, setTitle] = useState(initial?.title ?? '')
+  const [author, setAuthor] = useState(initial?.author ?? '')
+  const [coverUrl, setCoverUrl] = useState(initial?.coverUrl ?? '')
+
+  const handleIsbnResult = (result: IsbnLookupResult) => {
+    if (!title && result.title) setTitle(result.title)
+    if (!author && result.author) setAuthor(result.author)
+    if (!coverUrl && result.coverUrl) setCoverUrl(result.coverUrl)
+  }
+
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="libraryId" value={libraryId} />
       {mode === 'edit' && initial ? (
         <input type="hidden" name="id" value={initial.id} />
       ) : null}
+
+      {/* ISBN lookup — renders the isbn input + Look up button */}
+      <IsbnLookup initial={initial?.isbn ?? ''} onResult={handleIsbnResult} />
 
       {/* Title */}
       <div className="space-y-1.5">
@@ -46,7 +61,8 @@ export function BookForm({ libraryId, currencies, mode, initial }: Props) {
           type="text"
           required
           maxLength={300}
-          defaultValue={initial?.title ?? ''}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
         />
       </div>
 
@@ -58,19 +74,8 @@ export function BookForm({ libraryId, currencies, mode, initial }: Props) {
           name="author"
           type="text"
           maxLength={300}
-          defaultValue={initial?.author ?? ''}
-        />
-      </div>
-
-      {/* ISBN */}
-      <div className="space-y-1.5">
-        <Label htmlFor="isbn">ISBN</Label>
-        <Input
-          id="isbn"
-          name="isbn"
-          type="text"
-          maxLength={20}
-          defaultValue={initial?.isbn ?? ''}
+          value={author}
+          onChange={(e) => setAuthor(e.target.value)}
         />
       </div>
 
@@ -81,7 +86,8 @@ export function BookForm({ libraryId, currencies, mode, initial }: Props) {
           id="coverUrl"
           name="coverUrl"
           type="url"
-          defaultValue={initial?.coverUrl ?? ''}
+          value={coverUrl}
+          onChange={(e) => setCoverUrl(e.target.value)}
         />
       </div>
 
