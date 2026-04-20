@@ -6,7 +6,6 @@ import { libraries, libraryMembers } from '@/db/schema/libraries'
 import { CURRENT_LIBRARY_COOKIE } from './constants'
 
 export { CURRENT_LIBRARY_COOKIE }
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 365 days
 
 export type CurrentLibrary = {
   id: string
@@ -44,16 +43,6 @@ export async function getCurrentLibrary(): Promise<CurrentLibrary> {
 
   if (!selected) {
     throw new Error('User has no library membership. This should never happen — signup trigger creates one.')
-  }
-
-  // Re-set the cookie if missing or stale.
-  if (cookieValue !== selected.id) {
-    cookieStore.set(CURRENT_LIBRARY_COOKIE, selected.id, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: COOKIE_MAX_AGE,
-      path: '/',
-    })
   }
 
   return {
