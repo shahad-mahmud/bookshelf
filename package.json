@@ -15,6 +15,7 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx db/seed.ts",
     "db:apply": "tsx scripts/apply-migrations.ts",
+    "db:bootstrap": "tsx scripts/bootstrap-drizzle-history.ts",
     "db:reset": "tsx scripts/db-reset.ts",
     "smoke:rls": "tsx scripts/smoke-rls.ts",
     "smoke:invite": "tsx scripts/smoke-invite.ts"
