@@ -22,7 +22,8 @@ export function ActiveLoanCard({ loan }: { loan: ActiveLoan }) {
     { ok: true },
   )
   const wasPendingRef = useRef(false)
-  const today = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const isOverdue = loan.expectedReturnDate != null && loan.expectedReturnDate < today
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export function ActiveLoanCard({ loan }: { loan: ActiveLoan }) {
       router.refresh()
     }
     wasPendingRef.current = pending
-  }, [pending, state.ok, router])
+  }, [pending, router])
 
   return (
     <div className="rounded-lg border p-4">
