@@ -25,7 +25,7 @@ export async function lendBookAction(
 
   try {
     await db.query(async (tx) => {
-      let resolvedBorrowerId = borrowerId!
+      let resolvedBorrowerId: string
 
       if (newBorrowerName) {
         const [b] = await tx
@@ -33,6 +33,10 @@ export async function lendBookAction(
           .values({ libraryId, name: newBorrowerName, contact: newBorrowerContact })
           .returning({ id: borrowers.id })
         resolvedBorrowerId = b.id
+      } else if (borrowerId) {
+        resolvedBorrowerId = borrowerId
+      } else {
+        throw new Error('No borrower specified')
       }
 
       await tx.insert(loans).values({
@@ -45,8 +49,14 @@ export async function lendBookAction(
       })
     })
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : ''
-    if (msg.includes('idx_loans_one_active')) {
+    if (
+      err != null &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code: unknown }).code === '23505' &&
+      'constraint_name' in err &&
+      (err as { constraint_name: unknown }).constraint_name === 'idx_loans_one_active'
+    ) {
       return { ok: false, message: 'This book already has an active loan.' }
     }
     throw err
