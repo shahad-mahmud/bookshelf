@@ -39,7 +39,7 @@ function ReturnButton({ loan }: { loan: ActiveLoanRow }) {
         <input type="hidden" name="bookId" value={loan.bookId} />
         <input type="hidden" name="libraryId" value={loan.libraryId} />
         <Button type="submit" variant="outline" size="sm" disabled={pending}>
-          {pending ? '…' : 'Returned'}
+          {pending ? '…' : 'Mark Returned'}
         </Button>
       </form>
       {state.message && !state.ok ? (

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { eq, isNull, asc, and } from 'drizzle-orm'
+import { eq, isNull, asc, and, count } from 'drizzle-orm'
 import { createServerClient } from '@/lib/supabase/server'
 import { dbAsUser } from '@/db/client-server'
 import { getCurrentLibrary } from '@/lib/library/current'
@@ -16,7 +16,7 @@ export default async function HomePage() {
   if (!user) redirect('/login')
 
   const [current, db] = await Promise.all([getCurrentLibrary(), dbAsUser()])
-  const [profile, activeLoans] = await Promise.all([
+  const [profile, activeLoans, ownedBookCount] = await Promise.all([
     db.query((tx) =>
       tx.select().from(profiles).where(eq(profiles.id, user.id)).limit(1),
     ).then((r) => r[0]),
@@ -37,6 +37,13 @@ export default async function HomePage() {
         .where(and(eq(loans.libraryId, current.id), isNull(loans.returnedDate)))
         .orderBy(asc(loans.lentDate)),
     ) as Promise<ActiveLoanRow[]>,
+    db.query((tx) =>
+      tx
+        .select({ n: count() })
+        .from(books)
+        .where(and(eq(books.libraryId, current.id), eq(books.acquisition, 'owned')))
+        .limit(1),
+    ).then((r) => r[0]?.n ?? 0),
   ])
 
   return (
@@ -71,7 +78,7 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <ActiveLoansSection loans={activeLoans} />
+        {ownedBookCount > 0 ? <ActiveLoansSection loans={activeLoans} /> : null}
       </main>
     </>
   )
