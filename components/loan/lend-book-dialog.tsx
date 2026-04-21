@@ -48,7 +48,7 @@ export function LendBookDialog({
       router.refresh()
     }
     wasPendingRef.current = pending
-  }, [pending, state.ok, router])
+  }, [pending, router])
 
   useEffect(() => {
     if (open) {

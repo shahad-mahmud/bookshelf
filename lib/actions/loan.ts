@@ -63,6 +63,8 @@ export async function lendBookAction(
   }
 
   revalidatePath(`/books/${bookId}`)
+  revalidatePath('/books')
+  revalidatePath('/borrowers', 'layout')
   revalidatePath('/')
   return { ok: true }
 }
@@ -80,14 +82,21 @@ export async function returnBookAction(
   const today = new Date().toISOString().slice(0, 10)
 
   const db = await dbAsUser()
-  await db.query((tx) =>
+  const updated = await db.query((tx) =>
     tx
       .update(loans)
       .set({ returnedDate: today })
-      .where(and(eq(loans.id, loanId), eq(loans.libraryId, libraryId), isNull(loans.returnedDate))),
+      .where(and(eq(loans.id, loanId), eq(loans.libraryId, libraryId), isNull(loans.returnedDate)))
+      .returning({ id: loans.id }),
   )
 
+  if (updated.length === 0) {
+    return { ok: false, message: 'This loan has already been marked as returned.' }
+  }
+
   revalidatePath(`/books/${bookId}`)
+  revalidatePath('/books')
+  revalidatePath('/borrowers', 'layout')
   revalidatePath('/')
   return { ok: true }
 }
