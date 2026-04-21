@@ -1,4 +1,5 @@
 {
+  "regions": ["bom1"],
   "installCommand": "npm ci",
   "buildCommand": "npm run db:migrate && npm run build"
 }
