@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { logoutAction } from '@/lib/actions/auth'
 import { LibrarySwitcher } from '@/components/library/library-switcher'
@@ -10,6 +11,9 @@ export async function AppHeader({ displayName, email }: { displayName: string | 
     <header className="border-b bg-background">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 p-4">
         <div className="flex items-center gap-3">
+          <Link href="/" className="text-sm font-semibold tracking-tight hover:opacity-75">
+            Bookshelf
+          </Link>
           <LibrarySwitcher current={current} libraries={libraries} />
         </div>
         <div className="flex items-center gap-3">
