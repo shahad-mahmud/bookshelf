@@ -20,10 +20,14 @@ export const lendSchema = z
     expectedReturnDate: z.preprocess(emptyToUndef, isoDate.optional()),
     notes: z.preprocess(emptyToUndef, z.string().max(2000).optional()),
   })
-  .refine((d) => !!(d.borrowerId) !== !!(d.newBorrowerName), {
-    message: 'Provide either an existing borrower or a new borrower name, not both.',
-    path: ['borrowerId'],
-  })
+  .refine(
+    (d) => {
+      const hasBorrower = !!d.borrowerId
+      const hasName = d.newBorrowerName !== undefined && d.newBorrowerName.length > 0
+      return hasBorrower !== hasName
+    },
+    { message: 'Provide either an existing borrower or a new borrower name, not both.', path: ['borrowerId'] },
+  )
   .refine(
     (d) => !d.expectedReturnDate || d.expectedReturnDate >= d.lentDate,
     { message: 'Expected return date must be on or after the lent date.', path: ['expectedReturnDate'] },
