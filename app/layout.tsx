@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Toaster } from '@/components/ui/sonner'
+import { BottomNav } from '@/components/bottom-nav'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -10,9 +11,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-svh bg-background font-sans antialiased">
+      <body className="min-h-svh bg-background font-sans antialiased pb-16 md:pb-0">
         {children}
         <Toaster />
+        <BottomNav />
       </body>
     </html>
   )
