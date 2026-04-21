@@ -17,7 +17,7 @@ export async function AppHeader({ displayName, email }: { displayName: string | 
           <LibrarySwitcher current={current} libraries={libraries} />
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-right text-sm">
+          <div className="hidden text-right text-sm md:block">
             <div className="font-medium">{displayName ?? email ?? 'You'}</div>
             {email ? <div className="text-xs text-muted-foreground">{email}</div> : null}
           </div>
