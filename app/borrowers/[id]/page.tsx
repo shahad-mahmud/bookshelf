@@ -59,7 +59,7 @@ export default async function BorrowerDetailPage({
       <AppHeader displayName={profile?.displayName ?? null} email={profile?.email ?? null} />
       <main className="mx-auto max-w-3xl p-6">
         <div className="mb-6">
-          <Link href="/borrowers" className="text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/borrowers" className="inline-block py-2 text-sm text-muted-foreground hover:text-foreground">
             ← Borrowers
           </Link>
         </div>

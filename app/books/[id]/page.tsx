@@ -86,12 +86,12 @@ export default async function BookDetailPage({
       <AppHeader displayName={profile?.displayName ?? null} email={profile?.email ?? null} />
       <main className="mx-auto max-w-3xl p-6">
         <div className="mb-6">
-          <Link href="/books" className="text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/books" className="inline-block py-2 text-sm text-muted-foreground hover:text-foreground">
             ← Books
           </Link>
         </div>
 
-        <div className="flex gap-6">
+        <div className="flex flex-col gap-6 sm:flex-row">
           <BookCover src={book.coverUrl ?? null} title={book.title} size="lg" />
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-semibold leading-tight">{book.title}</h1>

@@ -38,7 +38,7 @@ export function BookFilters({ q, status }: { q: string; status: string }) {
         value={status}
         onValueChange={(value) => { if (value !== null) push({ status: value }) }}
       >
-        <SelectTrigger className="w-36">
+        <SelectTrigger className="w-full sm:w-36">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
