@@ -36,16 +36,25 @@ export function LendBookDialog({
     { ok: true },
   )
   const [borrowerSelection, setBorrowerSelection] = useState<BorrowerSelection>(null)
-  const today = new Date().toISOString().slice(0, 10)
+  const [lentDateDefault, setLentDateDefault] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  )
   const wasPendingRef = useRef(false)
 
   useEffect(() => {
     if (wasPendingRef.current && !pending && state.ok) {
       setOpen(false)
+      setBorrowerSelection(null)
       router.refresh()
     }
     wasPendingRef.current = pending
   }, [pending, state.ok, router])
+
+  useEffect(() => {
+    if (open) {
+      setLentDateDefault(new Date().toISOString().slice(0, 10))
+    }
+  }, [open])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -59,8 +68,8 @@ export function LendBookDialog({
           <input type="hidden" name="libraryId" value={libraryId} />
 
           <div className="grid gap-1.5">
-            <Label>Borrower</Label>
-            <BorrowerCombobox borrowers={borrowers} onChange={setBorrowerSelection} />
+            <Label htmlFor="borrower-search">Borrower</Label>
+            <BorrowerCombobox id="borrower-search" borrowers={borrowers} onChange={setBorrowerSelection} />
           </div>
 
           {borrowerSelection?.type === 'new' && (
@@ -80,7 +89,8 @@ export function LendBookDialog({
               id="lentDate"
               name="lentDate"
               type="date"
-              defaultValue={today}
+              value={lentDateDefault}
+              onChange={(e) => setLentDateDefault(e.target.value)}
               required
             />
           </div>

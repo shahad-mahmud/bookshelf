@@ -13,9 +13,11 @@ export type BorrowerSelection =
 export function BorrowerCombobox({
   borrowers,
   onChange,
+  id,
 }: {
   borrowers: BorrowerOption[]
   onChange?: (selection: BorrowerSelection) => void
+  id?: string
 }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -56,6 +58,7 @@ export function BorrowerCombobox({
       )}
 
       <Input
+        id={id}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value)
