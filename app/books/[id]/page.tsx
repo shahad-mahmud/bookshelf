@@ -1,15 +1,18 @@
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, isNull, isNotNull, desc, asc } from 'drizzle-orm'
 import { createServerClient } from '@/lib/supabase/server'
 import { dbAsUser } from '@/db/client-server'
 import { getCurrentLibrary } from '@/lib/library/current'
-import { books } from '@/db/schema/catalog'
+import { books, loans, borrowers } from '@/db/schema/catalog'
 import { profiles } from '@/db/schema/auth'
 import { AppHeader } from '@/components/app-header'
 import { BookCover } from '@/components/book/book-cover'
 import { DeleteBookDialog } from '@/components/book/delete-book-dialog'
 import { Button } from '@/components/ui/button'
+import { ActiveLoanCard } from '@/components/loan/active-loan-card'
+import { LendBookDialog } from '@/components/loan/lend-book-dialog'
+import { LoanHistoryTable } from '@/components/loan/loan-history-table'
 
 export default async function BookDetailPage({
   params,
@@ -36,6 +39,47 @@ export default async function BookDetailPage({
   ])
 
   if (!book) notFound()
+
+  const [activeLoan, loanHistory, allBorrowers] = await Promise.all([
+    db.query((tx) =>
+      tx
+        .select({
+          id: loans.id,
+          bookId: loans.bookId,
+          libraryId: loans.libraryId,
+          borrowerName: borrowers.name,
+          lentDate: loans.lentDate,
+          expectedReturnDate: loans.expectedReturnDate,
+        })
+        .from(loans)
+        .innerJoin(borrowers, and(eq(loans.borrowerId, borrowers.id), eq(loans.libraryId, borrowers.libraryId)))
+        .where(and(eq(loans.bookId, id), eq(loans.libraryId, current.id), isNull(loans.returnedDate)))
+        .limit(1),
+    ).then((r) => r[0] ?? null),
+    db.query((tx) =>
+      tx
+        .select({
+          id: loans.id,
+          bookId: loans.bookId,
+          bookTitle: books.title,
+          borrowerName: borrowers.name,
+          lentDate: loans.lentDate,
+          returnedDate: loans.returnedDate,
+        })
+        .from(loans)
+        .innerJoin(books, and(eq(loans.bookId, books.id), eq(loans.libraryId, books.libraryId)))
+        .innerJoin(borrowers, and(eq(loans.borrowerId, borrowers.id), eq(loans.libraryId, borrowers.libraryId)))
+        .where(and(eq(loans.bookId, id), eq(loans.libraryId, current.id), isNotNull(loans.returnedDate)))
+        .orderBy(desc(loans.createdAt)),
+    ),
+    db.query((tx) =>
+      tx
+        .select({ id: borrowers.id, name: borrowers.name })
+        .from(borrowers)
+        .where(eq(borrowers.libraryId, current.id))
+        .orderBy(asc(borrowers.name)),
+    ),
+  ])
 
   return (
     <>
@@ -111,10 +155,28 @@ export default async function BookDetailPage({
           </div>
         ) : null}
 
-        {/* Loans — coming later */}
-        <div className="mt-8 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Loan tracking arrives in Spec 1.4.
-        </div>
+        {book.acquisition === 'owned' ? (
+          <div className="mt-8">
+            <h2 className="mb-3 text-lg font-semibold">Loans</h2>
+            {activeLoan ? (
+              <ActiveLoanCard loan={activeLoan} />
+            ) : (
+              <LendBookDialog
+                bookId={book.id}
+                libraryId={current.id}
+                borrowers={allBorrowers}
+              />
+            )}
+            {loanHistory.length > 0 ? (
+              <div className="mt-6">
+                <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+                  Loan history
+                </h3>
+                <LoanHistoryTable loans={loanHistory} showBorrower />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </main>
     </>
   )
