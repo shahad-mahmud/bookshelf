@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { returnBookAction } from '@/lib/actions/loan'
@@ -27,6 +28,7 @@ function ReturnButton({ loan }: { loan: ActiveLoanRow }) {
 
   useEffect(() => {
     if (wasPendingRef.current && !pending && state.ok) {
+      toast.success('Marked as returned')
       router.refresh()
     }
     wasPendingRef.current = pending

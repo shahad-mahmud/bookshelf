@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,7 @@ export function LendBookDialog({
 
   useEffect(() => {
     if (wasPendingRef.current && !pending && state.ok) {
+      toast.success('Book lent')
       setOpen(false)
       setBorrowerSelection(null)
       router.refresh()
