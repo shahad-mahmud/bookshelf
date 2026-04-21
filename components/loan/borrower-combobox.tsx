@@ -27,7 +27,7 @@ export function BorrowerCombobox({
   )
   const showCreate =
     query.trim().length > 0 &&
-    !filtered.some((b) => b.name.toLowerCase() === query.trim().toLowerCase())
+    !borrowers.some((b) => b.name.toLowerCase() === query.trim().toLowerCase())
 
   function select(s: BorrowerSelection) {
     setSelected(s)
@@ -64,6 +64,7 @@ export function BorrowerCombobox({
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
         placeholder="Search or create a borrower…"
         autoComplete="off"
       />
