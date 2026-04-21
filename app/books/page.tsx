@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { desc, eq, and, sql, isNull } from 'drizzle-orm'
+import { Plus } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
 import { dbAsUser } from '@/db/client-server'
 import { getCurrentLibrary } from '@/lib/library/current'
@@ -128,6 +129,13 @@ export default async function BooksPage({
           </>
         )}
       </main>
+      <Link
+        href="/books/new"
+        className="fixed bottom-20 right-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg md:hidden"
+        aria-label="Add book"
+      >
+        <Plus className="h-6 w-6" />
+      </Link>
     </>
   )
 }
