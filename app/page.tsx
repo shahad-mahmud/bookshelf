@@ -1,11 +1,14 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { eq } from 'drizzle-orm'
+import { eq, isNull, asc, and } from 'drizzle-orm'
 import { createServerClient } from '@/lib/supabase/server'
 import { dbAsUser } from '@/db/client-server'
 import { getCurrentLibrary } from '@/lib/library/current'
 import { profiles } from '@/db/schema/auth'
+import { loans, books, borrowers } from '@/db/schema/catalog'
 import { AppHeader } from '@/components/app-header'
+import { ActiveLoansSection } from '@/components/loan/active-loans-section'
+import type { ActiveLoanRow } from '@/components/loan/active-loans-section'
 
 export default async function HomePage() {
   const supabase = await createServerClient()
@@ -13,9 +16,28 @@ export default async function HomePage() {
   if (!user) redirect('/login')
 
   const [current, db] = await Promise.all([getCurrentLibrary(), dbAsUser()])
-  const profile = await db.query((tx) =>
-    tx.select().from(profiles).where(eq(profiles.id, user.id)).limit(1),
-  ).then((r) => r[0])
+  const [profile, activeLoans] = await Promise.all([
+    db.query((tx) =>
+      tx.select().from(profiles).where(eq(profiles.id, user.id)).limit(1),
+    ).then((r) => r[0]),
+    db.query((tx) =>
+      tx
+        .select({
+          loanId: loans.id,
+          bookId: loans.bookId,
+          libraryId: loans.libraryId,
+          bookTitle: books.title,
+          borrowerName: borrowers.name,
+          lentDate: loans.lentDate,
+          expectedReturnDate: loans.expectedReturnDate,
+        })
+        .from(loans)
+        .innerJoin(books, and(eq(loans.bookId, books.id), eq(loans.libraryId, books.libraryId)))
+        .innerJoin(borrowers, and(eq(loans.borrowerId, borrowers.id), eq(loans.libraryId, borrowers.libraryId)))
+        .where(and(eq(loans.libraryId, current.id), isNull(loans.returnedDate)))
+        .orderBy(asc(loans.lentDate)),
+    ) as Promise<ActiveLoanRow[]>,
+  ])
 
   return (
     <>
@@ -48,6 +70,8 @@ export default async function HomePage() {
             <span className="text-sm text-muted-foreground">Track people who borrow from your library.</span>
           </Link>
         </div>
+
+        <ActiveLoansSection loans={activeLoans} />
       </main>
     </>
   )
