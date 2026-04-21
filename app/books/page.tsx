@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { desc, eq, and, sql } from 'drizzle-orm'
+import { desc, eq, and, sql, isNull } from 'drizzle-orm'
 import { createServerClient } from '@/lib/supabase/server'
 import { dbAsUser } from '@/db/client-server'
 import { getCurrentLibrary } from '@/lib/library/current'
-import { books } from '@/db/schema/catalog'
+import { books, loans } from '@/db/schema/catalog'
 import { profiles } from '@/db/schema/auth'
 import { AppHeader } from '@/components/app-header'
 import { BookCard } from '@/components/book/book-card'
@@ -34,7 +34,7 @@ export default async function BooksPage({
   const page = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
   const offset = (page - 1) * PAGE_SIZE
 
-  const [profile, rows] = await Promise.all([
+  const [profile, rows, activeLoanRows] = await Promise.all([
     db.query((tx) =>
       tx.select().from(profiles).where(eq(profiles.id, user.id)).limit(1),
     ).then((r) => r[0]),
@@ -72,6 +72,13 @@ export default async function BooksPage({
         .limit(PAGE_SIZE)
         .offset(offset)
     }),
+    // active loan bookIds
+    db.query((tx) =>
+      tx
+        .select({ bookId: loans.bookId })
+        .from(loans)
+        .where(and(eq(loans.libraryId, current.id), isNull(loans.returnedDate))),
+    ).then((r) => new Set(r.map((l) => l.bookId))),
   ])
 
   const total = rows[0]?.total ?? 0
@@ -114,7 +121,7 @@ export default async function BooksPage({
           <>
             <div className="grid gap-3 sm:grid-cols-2">
               {rows.map((book) => (
-                <BookCard key={book.id} book={book} />
+                <BookCard key={book.id} book={book} isLent={activeLoanRows.has(book.id)} />
               ))}
             </div>
             <Pagination currentPage={page} totalPages={totalPages} buildHref={buildHref} />

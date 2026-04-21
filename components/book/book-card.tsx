@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { BookCover } from './book-cover'
 import type { Book } from '@/db/schema/catalog'
 
-export function BookCard({ book }: { book: Book }) {
+export function BookCard({ book, isLent }: { book: Book; isLent?: boolean }) {
   return (
     <Link
       href={`/books/${book.id}`}
@@ -14,15 +14,22 @@ export function BookCard({ book }: { book: Book }) {
         {book.author ? (
           <p className="truncate text-muted-foreground">{book.author}</p>
         ) : null}
-        <span
-          className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-            book.acquisition === 'wishlist'
-              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-          }`}
-        >
-          {book.acquisition === 'wishlist' ? 'Wishlist' : 'Owned'}
-        </span>
+        <div className="mt-1 flex flex-wrap gap-1">
+          <span
+            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+              book.acquisition === 'wishlist'
+                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+            }`}
+          >
+            {book.acquisition === 'wishlist' ? 'Wishlist' : 'Owned'}
+          </span>
+          {isLent ? (
+            <span className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+              Lent
+            </span>
+          ) : null}
+        </div>
       </div>
     </Link>
   )
