@@ -10,6 +10,16 @@ import { createServerClient } from '@/lib/supabase/server'
 // without pulling in the Next-only `server-only` import at the top of this file.
 export { dbSystem } from './client-system'
 
+// Module-level client — reused across warm Vercel invocations so each request
+// skips the TCP handshake. prepare:false is required for Supabase Transaction-mode pooler.
+const _client = postgres(serverEnv.DATABASE_URL, {
+  prepare: false,
+  max: 3,
+  idle_timeout: 30,
+})
+const _db = drizzle(_client, { schema })
+type Tx = Parameters<Parameters<typeof _db.transaction>[0]>[0]
+
 /**
  * User-scoped Drizzle client. Sets request.jwt.claims inside a transaction so
  * RLS policies see auth.uid() correctly. Must be called from code that runs
@@ -22,30 +32,18 @@ export async function dbAsUser() {
     throw new Error('dbAsUser called without a valid session')
   }
 
-  const client = postgres(serverEnv.DATABASE_URL, {
-    prepare: false, // required for Supabase Transaction-mode pooler
-    max: 1,
-    idle_timeout: 10,
-  })
-  const db = drizzle(client, { schema })
-  type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-
   return {
     query: async <T>(fn: (tx: Tx) => Promise<T>): Promise<T> => {
-      try {
-        return await db.transaction(async (tx) => {
-          await tx.execute(
-            sql`select set_config('request.jwt.claims', ${JSON.stringify({
-              sub: session.user.id,
-              role: 'authenticated',
-              email: session.user.email,
-            })}, true)`,
-          )
-          return await fn(tx)
-        })
-      } finally {
-        await client.end({ timeout: 5 })
-      }
+      return await _db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select set_config('request.jwt.claims', ${JSON.stringify({
+            sub: session.user.id,
+            role: 'authenticated',
+            email: session.user.email,
+          })}, true)`,
+        )
+        return await fn(tx)
+      })
     },
   }
 }
