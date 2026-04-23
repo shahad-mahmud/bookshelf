@@ -57,12 +57,8 @@ export function BookForm({
   const [editorCount, setEditorCount] = useState(
     initial ? initialContributors.filter(c => c.role === 'editor').length : 0
   )
-  const [illustratorCount, setIllustratorCount] = useState(
-    initial ? initialContributors.filter(c => c.role === 'illustrator').length : 0
-  )
-
   const [showExtra, setShowExtra] = useState(
-    (initial ? initialContributors : []).some(c => c.role !== 'author')
+    initialContributors.some(c => c.role !== 'author')
   )
 
   function handleAutofill(result: { title?: string | null; isbn?: string | null; coverUrl?: string | null }) {
@@ -146,7 +142,7 @@ export function BookForm({
               authors={allAuthors}
               initial={initialContributors.filter(c => c.role === 'illustrator').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
               startIndex={authorCount + translatorCount + editorCount}
-              onCountChange={setIllustratorCount}
+              onCountChange={() => {}}
             />
           </div>
         </>
