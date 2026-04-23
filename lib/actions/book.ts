@@ -44,23 +44,26 @@ export async function createBookAction(
   const db = await dbAsUser()
   const { contributors: contributorInputs, ...bookData } = parsed.data
 
-  const [book] = await db.query((tx) =>
-    tx.insert(books).values(bookData).returning({ id: books.id }),
-  )
-
-  // Resolve and insert contributors
-  const resolved = await Promise.all(
+  // Resolve all authors first (outside the transaction — these are network calls)
+  const resolvedForCreate = await Promise.all(
     contributorInputs.map(async (c) => ({
-      bookId: book.id,
       authorId: await resolveAuthorId(db, c.authorId, c.newAuthorName),
       role: c.role,
     })),
   )
-  const validContributors = resolved.filter((c): c is { bookId: string; authorId: string; role: typeof c.role } => c.authorId !== undefined)
 
-  if (validContributors.length > 0) {
-    await db.query((tx) => tx.insert(bookContributors).values(validContributors))
-  }
+  // Single transaction: insert book + contributors together
+  const [book] = await db.query(async (tx) => {
+    const rows = await tx.insert(books).values(bookData).returning({ id: books.id })
+    const bookId = rows[0].id
+    const validContributors = resolvedForCreate
+      .filter((c): c is { authorId: string; role: typeof c.role } => c.authorId !== undefined)
+      .map((c) => ({ bookId, authorId: c.authorId, role: c.role }))
+    if (validContributors.length > 0) {
+      await tx.insert(bookContributors).values(validContributors)
+    }
+    return rows
+  })
 
   revalidateTag('library-autocomplete', 'max')
   redirect(`/books/${book.id}`)
@@ -86,22 +89,7 @@ export async function updateBookAction(
   const db = await dbAsUser()
   const { contributors: contributorInputs, ...bookData } = parsed.data
 
-  const updated = await db.query((tx) =>
-    tx
-      .update(books)
-      .set(bookData)
-      .where(and(eq(books.id, idParsed.data.id), eq(books.libraryId, idParsed.data.libraryId)))
-      .returning({ id: books.id }),
-  )
-  if (updated.length === 0) {
-    return { ok: false, message: 'Book not found.' }
-  }
-
-  // Replace contributors: delete existing, insert fresh
-  await db.query((tx) =>
-    tx.delete(bookContributors).where(eq(bookContributors.bookId, idParsed.data.id)),
-  )
-
+  // Resolve all authors first (outside the transaction — these are network calls)
   const resolved = await Promise.all(
     contributorInputs.map(async (c) => ({
       bookId: idParsed.data.id,
@@ -109,11 +97,28 @@ export async function updateBookAction(
       role: c.role,
     })),
   )
-  const validContributors = resolved.filter((c): c is { bookId: string; authorId: string; role: typeof c.role } => c.authorId !== undefined)
+  const validContributors = resolved.filter(
+    (c): c is { bookId: string; authorId: string; role: typeof c.role } => c.authorId !== undefined,
+  )
 
-  if (validContributors.length > 0) {
-    await db.query((tx) => tx.insert(bookContributors).values(validContributors))
-  }
+  // Single transaction: update book + replace contributors
+  const updated = await db.query(async (tx) => {
+    const rows = await tx
+      .update(books)
+      .set(bookData)
+      .where(and(eq(books.id, idParsed.data.id), eq(books.libraryId, idParsed.data.libraryId)))
+      .returning({ id: books.id })
+    if (rows.length === 0) return null
+
+    await tx.delete(bookContributors).where(eq(bookContributors.bookId, idParsed.data.id))
+
+    if (validContributors.length > 0) {
+      await tx.insert(bookContributors).values(validContributors)
+    }
+    return rows[0]
+  })
+
+  if (!updated) return { ok: false, message: 'Book not found.' }
 
   revalidateTag('library-autocomplete', 'max')
   redirect(`/books/${idParsed.data.id}`)

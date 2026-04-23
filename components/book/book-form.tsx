@@ -47,6 +47,8 @@ export function BookForm({
   const [title, setTitle] = useState(initial?.title ?? '')
   const [isbn, setIsbn] = useState(initial?.isbn ?? '')
   const [coverUrl, setCoverUrl] = useState(initial?.coverUrl ?? '')
+  const [autofillKey, setAutofillKey] = useState(0)
+  const [autofillContributors, setAutofillContributors] = useState(initialContributors)
 
   const [authorCount, setAuthorCount] = useState(
     initial ? (initialContributors.filter(c => c.role === 'author').length || 1) : 1
@@ -61,11 +63,16 @@ export function BookForm({
     initialContributors.some(c => c.role !== 'author')
   )
 
-  function handleAutofill(result: { title?: string | null; isbn?: string | null; coverUrl?: string | null }) {
+  function handleAutofill(result: { title?: string | null; isbn?: string | null; coverUrl?: string | null; contributors?: { authorId: string; authorName: string; role: string }[] }) {
     if (!title && result.title) setTitle(result.title)
     if (!isbn && result.isbn) setIsbn(result.isbn)
     if (!coverUrl && result.coverUrl) setCoverUrl(result.coverUrl)
-    // TODO: populate author from ISBN result once ContributorRowList supports it
+    if (result.contributors && result.contributors.length > 0) {
+      setAutofillContributors(result.contributors as typeof initialContributors)
+      setAutofillKey(k => k + 1)
+      // Show extra sections if there are non-author contributors
+      if (result.contributors.some(c => c.role !== 'author')) setShowExtra(true)
+    }
   }
 
   return (
@@ -96,9 +103,10 @@ export function BookForm({
       <div className="space-y-1.5">
         <Label>Author</Label>
         <ContributorRowList
+          key={autofillKey}
           role="author"
           authors={allAuthors}
-          initial={initialContributors.filter(c => c.role === 'author').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
+          initial={autofillContributors.filter(c => c.role === 'author').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
           startIndex={0}
           onCountChange={setAuthorCount}
         />
@@ -118,9 +126,10 @@ export function BookForm({
           <div className="space-y-1.5">
             <Label>Translator</Label>
             <ContributorRowList
+              key={autofillKey}
               role="translator"
               authors={allAuthors}
-              initial={initialContributors.filter(c => c.role === 'translator').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
+              initial={autofillContributors.filter(c => c.role === 'translator').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
               startIndex={authorCount}
               onCountChange={setTranslatorCount}
             />
@@ -128,9 +137,10 @@ export function BookForm({
           <div className="space-y-1.5">
             <Label>Editor</Label>
             <ContributorRowList
+              key={autofillKey}
               role="editor"
               authors={allAuthors}
-              initial={initialContributors.filter(c => c.role === 'editor').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
+              initial={autofillContributors.filter(c => c.role === 'editor').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
               startIndex={authorCount + translatorCount}
               onCountChange={setEditorCount}
             />
@@ -138,9 +148,10 @@ export function BookForm({
           <div className="space-y-1.5">
             <Label>Illustrator</Label>
             <ContributorRowList
+              key={autofillKey}
               role="illustrator"
               authors={allAuthors}
-              initial={initialContributors.filter(c => c.role === 'illustrator').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
+              initial={autofillContributors.filter(c => c.role === 'illustrator').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
               startIndex={authorCount + translatorCount + editorCount}
               onCountChange={() => {}}
             />

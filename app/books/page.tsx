@@ -43,7 +43,15 @@ export default async function BooksPage({
       const conditions: ReturnType<typeof eq>[] = [eq(books.libraryId, current.id)]
       if (q) {
         conditions.push(
-          sql`${books.title} ILIKE ${'%' + q + '%'}` as ReturnType<typeof eq>,
+          sql`(
+            ${books.title} ILIKE ${'%' + q + '%'}
+            OR EXISTS (
+              SELECT 1 FROM book_contributors bc
+              INNER JOIN authors a ON bc.author_id = a.id
+              WHERE bc.book_id = ${books.id}
+                AND a.name ILIKE ${'%' + q + '%'}
+            )
+          )` as ReturnType<typeof eq>,
         )
       }
       if (status === 'owned' || status === 'wishlist') {
