@@ -13,12 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { IsbnLookup } from '@/components/book/isbn-lookup'
-import { AuthorCombobox, type AuthorOption, type AuthorSelection } from '@/components/book/author-combobox'
+import type { AuthorOption } from '@/components/book/author-combobox'
+import { ContributorRowList } from '@/components/book/contributor-row-list'
 import { TitleCombobox } from '@/components/book/title-combobox'
 import { createBookAction, updateBookAction } from '@/lib/actions/book'
 import type { ActionState } from '@/lib/actions/library-schema'
-import type { Book, Currency } from '@/db/schema/catalog'
-import type { IsbnLookupResult } from '@/lib/openlibrary'
+import type { Book, Currency, ContributorRole } from '@/db/schema/catalog'
 import type { LibraryBook } from '@/components/book/title-combobox'
 
 type Props = {
@@ -26,6 +26,7 @@ type Props = {
   currencies: Currency[]
   allAuthors: AuthorOption[]
   libraryBooks: LibraryBook[]
+  initialContributors?: { authorId: string; authorName: string; role: ContributorRole }[]
 } & (
   | { mode: 'create'; initial?: undefined }
   | { mode: 'edit'; initial: Book }
@@ -36,6 +37,7 @@ export function BookForm({
   currencies,
   allAuthors,
   libraryBooks,
+  initialContributors = [],
   mode,
   initial,
 }: Props) {
@@ -45,19 +47,29 @@ export function BookForm({
   const [title, setTitle] = useState(initial?.title ?? '')
   const [isbn, setIsbn] = useState(initial?.isbn ?? '')
   const [coverUrl, setCoverUrl] = useState(initial?.coverUrl ?? '')
-  const [authorSelection, setAuthorSelection] = useState<AuthorSelection>(null)
 
-  function handleAutofill(result: IsbnLookupResult | LibraryBook) {
+  const [authorCount, setAuthorCount] = useState(
+    initial ? (initialContributors.filter(c => c.role === 'author').length || 1) : 1
+  )
+  const [translatorCount, setTranslatorCount] = useState(
+    initial ? initialContributors.filter(c => c.role === 'translator').length : 0
+  )
+  const [editorCount, setEditorCount] = useState(
+    initial ? initialContributors.filter(c => c.role === 'editor').length : 0
+  )
+  const [illustratorCount, setIllustratorCount] = useState(
+    initial ? initialContributors.filter(c => c.role === 'illustrator').length : 0
+  )
+
+  const [showExtra, setShowExtra] = useState(
+    (initial ? initialContributors : []).some(c => c.role !== 'author')
+  )
+
+  function handleAutofill(result: { title?: string | null; isbn?: string | null; coverUrl?: string | null }) {
     if (!title && result.title) setTitle(result.title)
-    if (!isbn && 'isbn' in result && result.isbn) setIsbn(result.isbn)
+    if (!isbn && result.isbn) setIsbn(result.isbn)
     if (!coverUrl && result.coverUrl) setCoverUrl(result.coverUrl)
-    if (!authorSelection) {
-      if ('authorId' in result && result.authorId && result.authorName) {
-        setAuthorSelection({ type: 'existing', id: result.authorId, name: result.authorName })
-      } else if ('author' in result && result.author) {
-        setAuthorSelection({ type: 'new', name: result.author })
-      }
-    }
+    // TODO: populate author from ISBN result once ContributorRowList supports it
   }
 
   return (
@@ -84,16 +96,61 @@ export function BookForm({
         />
       </div>
 
-      {/* Author */}
+      {/* Authors */}
       <div className="space-y-1.5">
-        <Label htmlFor="author">Author</Label>
-        <AuthorCombobox
-          id="author"
+        <Label>Author</Label>
+        <ContributorRowList
+          role="author"
           authors={allAuthors}
-          initialAuthorId={initial?.authorId ?? null}
-          controlledSelection={authorSelection}
+          initial={initialContributors.filter(c => c.role === 'author').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
+          startIndex={0}
+          onCountChange={setAuthorCount}
         />
       </div>
+
+      {/* Progressive disclosure for other roles */}
+      {!showExtra ? (
+        <button
+          type="button"
+          className="text-sm text-primary hover:underline"
+          onClick={() => setShowExtra(true)}
+        >
+          + Add translator / editor / illustrator
+        </button>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            <Label>Translator</Label>
+            <ContributorRowList
+              role="translator"
+              authors={allAuthors}
+              initial={initialContributors.filter(c => c.role === 'translator').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
+              startIndex={authorCount}
+              onCountChange={setTranslatorCount}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Editor</Label>
+            <ContributorRowList
+              role="editor"
+              authors={allAuthors}
+              initial={initialContributors.filter(c => c.role === 'editor').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
+              startIndex={authorCount + translatorCount}
+              onCountChange={setEditorCount}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Illustrator</Label>
+            <ContributorRowList
+              role="illustrator"
+              authors={allAuthors}
+              initial={initialContributors.filter(c => c.role === 'illustrator').map(c => ({ authorId: c.authorId, authorName: c.authorName }))}
+              startIndex={authorCount + translatorCount + editorCount}
+              onCountChange={setIllustratorCount}
+            />
+          </div>
+        </>
+      )}
 
       {/* Cover URL */}
       <div className="space-y-1.5">
