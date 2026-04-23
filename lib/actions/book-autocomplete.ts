@@ -1,6 +1,6 @@
 import 'server-only'
 import { unstable_cache } from 'next/cache'
-import { eq, inArray, isNotNull } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { dbSystem } from '@/db/client-system'
 import { books, authors, authorAliases } from '@/db/schema/catalog'
 import { libraryMembers } from '@/db/schema/libraries'
