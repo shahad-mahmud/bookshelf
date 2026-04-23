@@ -13,6 +13,25 @@ export const currencies = pgTable('currencies', {
   name: text('name').notNull(),
 })
 
+export const authors = pgTable('authors', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  name: text('name').notNull().unique(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const authorAliases = pgTable(
+  'author_aliases',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    authorIdx: index('idx_author_aliases_author').on(t.authorId),
+  }),
+)
+
 export const borrowers = pgTable(
   'borrowers',
   {
@@ -36,7 +55,7 @@ export const books = pgTable(
     id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
     libraryId: uuid('library_id').notNull().references(() => libraries.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
-    author: text('author'),
+    authorId: uuid('author_id').references(() => authors.id, { onDelete: 'set null' }),
     isbn: text('isbn'),
     coverUrl: text('cover_url'),
     acquisition: acquisitionStatus('acquisition').notNull().default('owned'),
@@ -102,6 +121,8 @@ export const loans = pgTable(
 )
 
 export type Currency = typeof currencies.$inferSelect
+export type Author = typeof authors.$inferSelect
+export type AuthorAlias = typeof authorAliases.$inferSelect
 export type Borrower = typeof borrowers.$inferSelect
 export type Book = typeof books.$inferSelect
 export type Loan = typeof loans.$inferSelect
