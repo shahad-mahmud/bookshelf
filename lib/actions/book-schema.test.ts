@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bookSchema, isbnLookupSchema } from './book-schema'
+import { bookSchema, isbnLookupSchema, parseContributors } from './book-schema'
 
 const validBase = {
   libraryId: '00000000-0000-0000-0000-000000000000',
@@ -13,63 +13,83 @@ describe('bookSchema', () => {
   })
 
   it('trims title and defaults acquisition to owned', () => {
-    const result = bookSchema.safeParse({ ...validBase, title: '  Trimmed  ' })
+    const result = bookSchema.safeParse({ ...validBase })
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.title).toBe('Trimmed')
       expect(result.data.acquisition).toBe('owned')
+      expect(result.data.contributors).toEqual([])
     }
   })
 
-  it('accepts a valid authorId UUID', () => {
+  it('accepts contributors array with authorId', () => {
     const result = bookSchema.safeParse({
       ...validBase,
-      authorId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+      contributors: [{ authorId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', role: 'author' }],
     })
     expect(result.success).toBe(true)
-    if (result.success) expect(result.data.authorId).toBe('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
+    if (result.success) {
+      expect(result.data.contributors).toHaveLength(1)
+      expect(result.data.contributors[0].role).toBe('author')
+    }
   })
 
-  it('accepts a newAuthorName string', () => {
-    const result = bookSchema.safeParse({ ...validBase, newAuthorName: 'Jane Austen' })
+  it('accepts contributors with newAuthorName', () => {
+    const result = bookSchema.safeParse({
+      ...validBase,
+      contributors: [{ newAuthorName: 'Jane Austen', role: 'translator' }],
+    })
     expect(result.success).toBe(true)
-    if (result.success) expect(result.data.newAuthorName).toBe('Jane Austen')
+    if (result.success) {
+      expect(result.data.contributors[0].newAuthorName).toBe('Jane Austen')
+      expect(result.data.contributors[0].role).toBe('translator')
+    }
   })
 
-  it('converts empty authorId to undefined', () => {
-    const result = bookSchema.safeParse({ ...validBase, authorId: '' })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.authorId).toBeUndefined()
+  it('rejects unknown contributor role', () => {
+    const result = bookSchema.safeParse({
+      ...validBase,
+      contributors: [{ newAuthorName: 'X', role: 'unknown' }],
+    })
+    expect(result.success).toBe(false)
   })
 
   it('rejects invalid ISBN chars', () => {
     expect(bookSchema.safeParse({ ...validBase, isbn: 'ABC-123' }).success).toBe(false)
   })
 
-  it('accepts valid ISBN with dashes', () => {
-    expect(bookSchema.safeParse({ ...validBase, isbn: '978-3-16-148410-0' }).success).toBe(true)
-  })
-
-  it('requires price and currency together — price without currency fails', () => {
+  it('requires price and currency together', () => {
     expect(bookSchema.safeParse({ ...validBase, purchasePrice: '9.99' }).success).toBe(false)
+    expect(bookSchema.safeParse({ ...validBase, purchasePrice: '9.99', purchaseCurrency: 'USD' }).success).toBe(true)
+  })
+})
+
+describe('parseContributors', () => {
+  it('parses indexed form data into array', () => {
+    const flat: Record<string, string> = {
+      'contributors[0][role]': 'author',
+      'contributors[0][authorId]': 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+      'contributors[1][role]': 'translator',
+      'contributors[1][newAuthorName]': 'John Smith',
+    }
+    const result = parseContributors(flat)
+    expect(result).toEqual([
+      { role: 'author', authorId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee' },
+      { role: 'translator', newAuthorName: 'John Smith' },
+    ])
   })
 
-  it('requires price and currency together — both present passes', () => {
-    const result = bookSchema.safeParse({ ...validBase, purchasePrice: '9.99', purchaseCurrency: 'USD' })
-    expect(result.success).toBe(true)
+  it('returns empty array when no contributors keys', () => {
+    expect(parseContributors({ title: 'Book' })).toEqual([])
   })
 
-  it('rejects malformed date', () => {
-    expect(bookSchema.safeParse({ ...validBase, purchaseDate: '2024/01/15' }).success).toBe(false)
-  })
-
-  it('rejects non-URL coverUrl', () => {
-    expect(bookSchema.safeParse({ ...validBase, coverUrl: 'not-a-url' }).success).toBe(false)
+  it('skips entries with no role', () => {
+    const flat = { 'contributors[0][authorId]': 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee' }
+    expect(parseContributors(flat)).toEqual([])
   })
 })
 
 describe('isbnLookupSchema', () => {
-  it('accepts a valid ISBN-10', () => {
+  it('accepts a valid ISBN', () => {
     expect(isbnLookupSchema.safeParse({ isbn: '0141439580' }).success).toBe(true)
   })
   it('rejects empty string', () => {

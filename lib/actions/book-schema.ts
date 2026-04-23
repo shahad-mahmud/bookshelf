@@ -3,12 +3,17 @@ import type { IsbnLookupResult } from '@/lib/openlibrary'
 
 const emptyToUndef = (v: unknown) => (v === '' || v === null ? undefined : v)
 
+const contributorSchema = z.object({
+  authorId: z.preprocess(emptyToUndef, z.uuid().optional()),
+  newAuthorName: z.preprocess(emptyToUndef, z.string().trim().max(300).optional()),
+  role: z.enum(['author', 'translator', 'editor', 'illustrator']),
+})
+
 export const bookSchema = z
   .object({
     libraryId: z.uuid(),
     title: z.string().trim().min(1, 'Title is required').max(300),
-    authorId: z.preprocess(emptyToUndef, z.uuid().optional()),
-    newAuthorName: z.preprocess(emptyToUndef, z.string().trim().max(300).optional()),
+    contributors: z.array(contributorSchema).default([]),
     isbn: z.preprocess(
       emptyToUndef,
       z.string().trim().regex(/^[0-9Xx-]+$/, 'ISBN must be digits/X/dashes').max(20).optional(),
@@ -42,3 +47,30 @@ export const isbnLookupSchema = z.object({ isbn: z.string().min(1) })
 export type IsbnLookupState =
   | { ok: true; result: IsbnLookupResult }
   | { ok: false; error: string }
+
+export type ContributorInput = z.infer<typeof contributorSchema>
+
+/**
+ * Extracts indexed contributor entries from flat form-data.
+ * Handles keys like: contributors[0][role], contributors[0][authorId], etc.
+ */
+export function parseContributors(flat: Record<string, string>): ContributorInput[] {
+  const map = new Map<number, Record<string, string>>()
+
+  for (const [key, value] of Object.entries(flat)) {
+    const match = key.match(/^contributors\[(\d+)\]\[(\w+)\]$/)
+    if (!match) continue
+    const idx = parseInt(match[1], 10)
+    const field = match[2]
+    if (!map.has(idx)) map.set(idx, {})
+    map.get(idx)![field] = value
+  }
+
+  const result: ContributorInput[] = []
+  for (const [, entry] of [...map.entries()].sort(([a], [b]) => a - b)) {
+    if (!entry.role) continue
+    const parsed = contributorSchema.safeParse(entry)
+    if (parsed.success) result.push(parsed.data)
+  }
+  return result
+}
