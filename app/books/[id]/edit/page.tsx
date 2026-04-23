@@ -3,7 +3,7 @@ import { eq, and } from 'drizzle-orm'
 import { getCurrentLibrary } from '@/lib/library/current'
 import { dbAsUser } from '@/db/client-server'
 import { createServerClient } from '@/lib/supabase/server'
-import { books, currencies } from '@/db/schema/catalog'
+import { books, currencies, bookContributors, authors } from '@/db/schema/catalog'
 import { getAutocompleteData } from '@/lib/actions/book-autocomplete'
 import { BookForm } from '@/components/book/book-form'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -21,7 +21,7 @@ export default async function EditBookPage({
 
   const [current, db] = await Promise.all([getCurrentLibrary(), dbAsUser()])
 
-  const [book, allCurrencies, autocomplete] = await Promise.all([
+  const [book, allCurrencies, autocomplete, bookContribList] = await Promise.all([
     db.query((tx) =>
       tx
         .select()
@@ -31,6 +31,17 @@ export default async function EditBookPage({
     ).then((r) => r[0]),
     db.query((tx) => tx.select().from(currencies).orderBy(currencies.code)),
     getAutocompleteData(user.id, current.id),
+    db.query((tx) =>
+      tx
+        .select({
+          authorId: bookContributors.authorId,
+          authorName: authors.name,
+          role: bookContributors.role,
+        })
+        .from(bookContributors)
+        .innerJoin(authors, eq(bookContributors.authorId, authors.id))
+        .where(eq(bookContributors.bookId, id)),
+    ),
   ])
 
   if (!book) notFound()
@@ -49,6 +60,7 @@ export default async function EditBookPage({
             currencies={allCurrencies}
             allAuthors={autocomplete.allAuthors}
             libraryBooks={autocomplete.libraryBooks}
+            initialContributors={bookContribList}
           />
         </CardContent>
       </Card>

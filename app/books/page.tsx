@@ -1,11 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { desc, eq, and, sql, isNull } from 'drizzle-orm'
+import { desc, eq, and, sql, isNull, inArray } from 'drizzle-orm'
 import { Plus } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
 import { dbAsUser } from '@/db/client-server'
 import { getCurrentLibrary } from '@/lib/library/current'
-import { books, loans, authors } from '@/db/schema/catalog'
+import { books, loans, bookContributors, authors } from '@/db/schema/catalog'
 import { profiles } from '@/db/schema/auth'
 import { AppHeader } from '@/components/app-header'
 import { BookCard } from '@/components/book/book-card'
@@ -43,7 +43,7 @@ export default async function BooksPage({
       const conditions: ReturnType<typeof eq>[] = [eq(books.libraryId, current.id)]
       if (q) {
         conditions.push(
-          sql`(${books.title} || ' ' || coalesce(${authors.name}, '')) ILIKE ${'%' + q + '%'}` as ReturnType<typeof eq>,
+          sql`${books.title} ILIKE ${'%' + q + '%'}` as ReturnType<typeof eq>,
         )
       }
       if (status === 'owned' || status === 'wishlist') {
@@ -54,8 +54,6 @@ export default async function BooksPage({
           id: books.id,
           libraryId: books.libraryId,
           title: books.title,
-          authorId: books.authorId,
-          authorName: authors.name,
           isbn: books.isbn,
           coverUrl: books.coverUrl,
           acquisition: books.acquisition,
@@ -69,7 +67,6 @@ export default async function BooksPage({
           total: sql<number>`count(*) OVER ()`.mapWith(Number),
         })
         .from(books)
-        .leftJoin(authors, eq(books.authorId, authors.id))
         .where(and(...conditions))
         .orderBy(desc(books.createdAt))
         .limit(PAGE_SIZE)
@@ -85,6 +82,28 @@ export default async function BooksPage({
 
   const total = rows[0]?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  const bookIds = rows.map((r) => r.id)
+  const contributorRows = bookIds.length > 0
+    ? await db.query((tx) =>
+        tx
+          .select({
+            bookId: bookContributors.bookId,
+            authorName: authors.name,
+            role: bookContributors.role,
+          })
+          .from(bookContributors)
+          .innerJoin(authors, eq(bookContributors.authorId, authors.id))
+          .where(inArray(bookContributors.bookId, bookIds)),
+      )
+    : []
+
+  const contributorsByBook = new Map<string, { authorName: string; role: string }[]>()
+  for (const c of contributorRows) {
+    const list = contributorsByBook.get(c.bookId) ?? []
+    list.push({ authorName: c.authorName, role: c.role })
+    contributorsByBook.set(c.bookId, list)
+  }
 
   function buildHref(p: number) {
     const ps = new URLSearchParams()
@@ -126,7 +145,7 @@ export default async function BooksPage({
                 <BookCard
                   key={book.id}
                   book={book}
-                  authorName={book.authorName}
+                  contributors={contributorsByBook.get(book.id) ?? []}
                   isLent={activeLoanRows.has(book.id)}
                 />
               ))}

@@ -2,15 +2,22 @@ import Link from 'next/link'
 import { BookCover } from './book-cover'
 import type { Book } from '@/db/schema/catalog'
 
+type Contributor = { authorName: string; role: string }
+
 export function BookCard({
   book,
-  authorName,
+  contributors = [],
   isLent,
 }: {
   book: Book
-  authorName?: string | null
+  contributors?: Contributor[]
   isLent?: boolean
 }) {
+  const authorNames = contributors
+    .filter((c) => c.role === 'author')
+    .map((c) => c.authorName)
+    .join(', ')
+
   return (
     <Link
       href={`/books/${book.id}`}
@@ -19,8 +26,8 @@ export function BookCard({
       <BookCover src={book.coverUrl ?? null} title={book.title} size="sm" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium leading-snug">{book.title}</p>
-        {authorName ? (
-          <p className="truncate text-muted-foreground">{authorName}</p>
+        {authorNames ? (
+          <p className="truncate text-muted-foreground">{authorNames}</p>
         ) : null}
         <div className="mt-1 flex flex-wrap gap-1">
           <span

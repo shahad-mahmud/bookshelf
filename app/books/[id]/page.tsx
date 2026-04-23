@@ -4,7 +4,7 @@ import { eq, and, isNull, isNotNull, desc, asc } from 'drizzle-orm'
 import { createServerClient } from '@/lib/supabase/server'
 import { dbAsUser } from '@/db/client-server'
 import { getCurrentLibrary } from '@/lib/library/current'
-import { books, loans, borrowers, authors } from '@/db/schema/catalog'
+import { books, loans, borrowers, bookContributors, authors } from '@/db/schema/catalog'
 import { profiles } from '@/db/schema/auth'
 import { AppHeader } from '@/components/app-header'
 import { BookCover } from '@/components/book/book-cover'
@@ -35,8 +35,6 @@ export default async function BookDetailPage({
           id: books.id,
           libraryId: books.libraryId,
           title: books.title,
-          authorId: books.authorId,
-          authorName: authors.name,
           isbn: books.isbn,
           coverUrl: books.coverUrl,
           acquisition: books.acquisition,
@@ -49,7 +47,6 @@ export default async function BookDetailPage({
           updatedAt: books.updatedAt,
         })
         .from(books)
-        .leftJoin(authors, eq(books.authorId, authors.id))
         .where(and(eq(books.id, id), eq(books.libraryId, current.id)))
         .limit(1),
     ).then((r) => r[0]),
@@ -57,7 +54,7 @@ export default async function BookDetailPage({
 
   if (!book) notFound()
 
-  const [activeLoan, loanHistory, allBorrowers] = await Promise.all([
+  const [activeLoan, loanHistory, allBorrowers, contributors] = await Promise.all([
     db.query((tx) =>
       tx
         .select({
@@ -96,6 +93,17 @@ export default async function BookDetailPage({
         .where(eq(borrowers.libraryId, current.id))
         .orderBy(asc(borrowers.name)),
     ),
+    db.query((tx) =>
+      tx
+        .select({
+          authorId: bookContributors.authorId,
+          authorName: authors.name,
+          role: bookContributors.role,
+        })
+        .from(bookContributors)
+        .innerJoin(authors, eq(bookContributors.authorId, authors.id))
+        .where(eq(bookContributors.bookId, id)),
+    ).then((r) => r as { authorId: string; authorName: string; role: string }[]),
   ])
 
   return (
@@ -112,9 +120,22 @@ export default async function BookDetailPage({
           <BookCover src={book.coverUrl ?? null} title={book.title} size="lg" />
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-semibold leading-tight">{book.title}</h1>
-            {book.authorName ? (
-              <p className="mt-1 text-lg text-muted-foreground">{book.authorName}</p>
-            ) : null}
+            {/* Contributors grouped by role */}
+            {['author', 'translator', 'editor', 'illustrator'].map((role) => {
+              const roleContributors = contributors.filter((c) => c.role === role)
+              if (roleContributors.length === 0) return null
+              const names = roleContributors.map((c) => c.authorName).join(', ')
+              const label = role === 'author' ? null
+                : role === 'translator' ? 'Translated by'
+                : role === 'editor' ? 'Edited by'
+                : 'Illustrated by'
+              return (
+                <p key={role} className="mt-1 text-lg text-muted-foreground">
+                  {label ? <span className="text-sm">{label} </span> : null}
+                  {names}
+                </p>
+              )
+            })}
             <span
               className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
                 book.acquisition === 'wishlist'
