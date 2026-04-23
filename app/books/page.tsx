@@ -5,7 +5,7 @@ import { Plus } from 'lucide-react'
 import { createServerClient } from '@/lib/supabase/server'
 import { dbAsUser } from '@/db/client-server'
 import { getCurrentLibrary } from '@/lib/library/current'
-import { books, loans } from '@/db/schema/catalog'
+import { books, loans, authors } from '@/db/schema/catalog'
 import { profiles } from '@/db/schema/auth'
 import { AppHeader } from '@/components/app-header'
 import { BookCard } from '@/components/book/book-card'
@@ -43,7 +43,7 @@ export default async function BooksPage({
       const conditions: ReturnType<typeof eq>[] = [eq(books.libraryId, current.id)]
       if (q) {
         conditions.push(
-          sql`(${books.title} || ' ' || coalesce(${books.author}, '')) ILIKE ${'%' + q + '%'}` as ReturnType<typeof eq>,
+          sql`(${books.title} || ' ' || coalesce(${authors.name}, '')) ILIKE ${'%' + q + '%'}` as ReturnType<typeof eq>,
         )
       }
       if (status === 'owned' || status === 'wishlist') {
@@ -54,7 +54,8 @@ export default async function BooksPage({
           id: books.id,
           libraryId: books.libraryId,
           title: books.title,
-          author: books.author,
+          authorId: books.authorId,
+          authorName: authors.name,
           isbn: books.isbn,
           coverUrl: books.coverUrl,
           acquisition: books.acquisition,
@@ -68,12 +69,12 @@ export default async function BooksPage({
           total: sql<number>`count(*) OVER ()`.mapWith(Number),
         })
         .from(books)
+        .leftJoin(authors, eq(books.authorId, authors.id))
         .where(and(...conditions))
         .orderBy(desc(books.createdAt))
         .limit(PAGE_SIZE)
         .offset(offset)
     }),
-    // active loan bookIds
     db.query((tx) =>
       tx
         .select({ bookId: loans.bookId })
@@ -122,7 +123,12 @@ export default async function BooksPage({
           <>
             <div className="grid gap-3 sm:grid-cols-2">
               {rows.map((book) => (
-                <BookCard key={book.id} book={book} isLent={activeLoanRows.has(book.id)} />
+                <BookCard
+                  key={book.id}
+                  book={book}
+                  authorName={book.authorName}
+                  isLent={activeLoanRows.has(book.id)}
+                />
               ))}
             </div>
             <Pagination currentPage={page} totalPages={totalPages} buildHref={buildHref} />
