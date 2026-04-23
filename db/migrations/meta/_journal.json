@@ -50,6 +50,20 @@
       "when": 1776602141592,
       "tag": "0006_lookup_invite",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1745366400001,
+      "tag": "0007_fix_strand_trigger",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776934758621,
+      "tag": "0008_authors_with_backfill",
+      "breakpoints": true
     }
   ]
 }
