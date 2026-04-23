@@ -86,12 +86,16 @@ export async function updateBookAction(
   const db = await dbAsUser()
   const { contributors: contributorInputs, ...bookData } = parsed.data
 
-  await db.query((tx) =>
+  const updated = await db.query((tx) =>
     tx
       .update(books)
       .set(bookData)
-      .where(and(eq(books.id, idParsed.data.id), eq(books.libraryId, idParsed.data.libraryId))),
+      .where(and(eq(books.id, idParsed.data.id), eq(books.libraryId, idParsed.data.libraryId)))
+      .returning({ id: books.id }),
   )
+  if (updated.length === 0) {
+    return { ok: false, message: 'Book not found.' }
+  }
 
   // Replace contributors: delete existing, insert fresh
   await db.query((tx) =>
