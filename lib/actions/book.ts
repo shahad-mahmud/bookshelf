@@ -4,8 +4,8 @@ import { redirect } from 'next/navigation'
 import { revalidateTag } from 'next/cache'
 import { eq, and } from 'drizzle-orm'
 import { dbAsUser } from '@/db/client-server'
-import { books, authors } from '@/db/schema/catalog'
-import { bookSchema, bookIdSchema, isbnLookupSchema } from './book-schema'
+import { books, authors, bookContributors } from '@/db/schema/catalog'
+import { bookSchema, bookIdSchema, isbnLookupSchema, parseContributors } from './book-schema'
 import { lookupIsbn } from '@/lib/openlibrary'
 import type { ActionState } from './library-schema'
 import type { IsbnLookupState } from './book-schema'
@@ -33,19 +33,34 @@ export async function createBookAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const parsed = bookSchema.safeParse(Object.fromEntries(formData))
+  const flat = Object.fromEntries(formData) as Record<string, string>
+  const contributors = parseContributors(flat)
+
+  const parsed = bookSchema.safeParse({ ...flat, contributors })
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? 'Invalid data' }
   }
 
   const db = await dbAsUser()
-  const { authorId: rawAuthorId, newAuthorName, ...bookData } = parsed.data
-
-  const authorId = await resolveAuthorId(db, rawAuthorId, newAuthorName)
+  const { contributors: contributorInputs, ...bookData } = parsed.data
 
   const [book] = await db.query((tx) =>
-    tx.insert(books).values({ ...bookData, authorId }).returning({ id: books.id }),
+    tx.insert(books).values(bookData).returning({ id: books.id }),
   )
+
+  // Resolve and insert contributors
+  const resolved = await Promise.all(
+    contributorInputs.map(async (c) => ({
+      bookId: book.id,
+      authorId: await resolveAuthorId(db, c.authorId, c.newAuthorName),
+      role: c.role,
+    })),
+  )
+  const validContributors = resolved.filter((c): c is { bookId: string; authorId: string; role: typeof c.role } => c.authorId !== undefined)
+
+  if (validContributors.length > 0) {
+    await db.query((tx) => tx.insert(bookContributors).values(validContributors))
+  }
 
   revalidateTag('library-autocomplete', 'max')
   redirect(`/books/${book.id}`)
@@ -55,27 +70,46 @@ export async function updateBookAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const idParsed = bookIdSchema.safeParse(Object.fromEntries(formData))
+  const flat = Object.fromEntries(formData) as Record<string, string>
+
+  const idParsed = bookIdSchema.safeParse(flat)
   if (!idParsed.success) {
     return { ok: false, message: 'Invalid book ID' }
   }
 
-  const parsed = bookSchema.safeParse(Object.fromEntries(formData))
+  const contributors = parseContributors(flat)
+  const parsed = bookSchema.safeParse({ ...flat, contributors })
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? 'Invalid data' }
   }
 
   const db = await dbAsUser()
-  const { authorId: rawAuthorId, newAuthorName, ...bookData } = parsed.data
-
-  const authorId = await resolveAuthorId(db, rawAuthorId, newAuthorName)
+  const { contributors: contributorInputs, ...bookData } = parsed.data
 
   await db.query((tx) =>
     tx
       .update(books)
-      .set({ ...bookData, authorId })
+      .set(bookData)
       .where(and(eq(books.id, idParsed.data.id), eq(books.libraryId, idParsed.data.libraryId))),
   )
+
+  // Replace contributors: delete existing, insert fresh
+  await db.query((tx) =>
+    tx.delete(bookContributors).where(eq(bookContributors.bookId, idParsed.data.id)),
+  )
+
+  const resolved = await Promise.all(
+    contributorInputs.map(async (c) => ({
+      bookId: idParsed.data.id,
+      authorId: await resolveAuthorId(db, c.authorId, c.newAuthorName),
+      role: c.role,
+    })),
+  )
+  const validContributors = resolved.filter((c): c is { bookId: string; authorId: string; role: typeof c.role } => c.authorId !== undefined)
+
+  if (validContributors.length > 0) {
+    await db.query((tx) => tx.insert(bookContributors).values(validContributors))
+  }
 
   revalidateTag('library-autocomplete', 'max')
   redirect(`/books/${idParsed.data.id}`)
