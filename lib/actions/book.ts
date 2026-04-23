@@ -47,7 +47,7 @@ export async function createBookAction(
     tx.insert(books).values({ ...bookData, authorId }).returning({ id: books.id }),
   )
 
-  revalidateTag('library-autocomplete')
+  revalidateTag('library-autocomplete', 'max')
   redirect(`/books/${book.id}`)
 }
 
@@ -77,7 +77,7 @@ export async function updateBookAction(
       .where(and(eq(books.id, idParsed.data.id), eq(books.libraryId, idParsed.data.libraryId))),
   )
 
-  revalidateTag('library-autocomplete')
+  revalidateTag('library-autocomplete', 'max')
   redirect(`/books/${idParsed.data.id}`)
 }
 
