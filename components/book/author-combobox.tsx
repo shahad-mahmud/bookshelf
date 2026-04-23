@@ -16,9 +16,10 @@ type Props = {
   onChange?: (selection: AuthorSelection) => void
   id?: string
   controlledSelection?: AuthorSelection
+  hideInputs?: boolean
 }
 
-export function AuthorCombobox({ authors, initialAuthorId, onChange, id, controlledSelection }: Props) {
+export function AuthorCombobox({ authors, initialAuthorId, onChange, id, controlledSelection, hideInputs }: Props) {
   const initialAuthor = initialAuthorId ? authors.find((a) => a.id === initialAuthorId) : undefined
   const [selection, setSelection] = useState<AuthorSelection>(
     initialAuthor ? { type: 'existing', id: initialAuthor.id, name: initialAuthor.name } : null,
@@ -61,10 +62,10 @@ export function AuthorCombobox({ authors, initialAuthorId, onChange, id, control
 
   return (
     <div>
-      {selection?.type === 'existing' && (
+      {!hideInputs && selection?.type === 'existing' && (
         <input type="hidden" name="authorId" value={selection.id} />
       )}
-      {selection?.type === 'new' && (
+      {!hideInputs && selection?.type === 'new' && (
         <input type="hidden" name="newAuthorName" value={selection.name} />
       )}
       <Combobox
