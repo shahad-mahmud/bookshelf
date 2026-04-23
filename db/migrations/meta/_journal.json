@@ -71,6 +71,20 @@
       "when": 1745366400002,
       "tag": "0009_authors_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1776948534503,
+      "tag": "0010_previous_franklin_richards",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1745366400003,
+      "tag": "0011_book_contributors_rls",
+      "breakpoints": true
     }
   ]
 }

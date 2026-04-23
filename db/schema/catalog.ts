@@ -7,6 +7,8 @@ import { libraries } from './libraries'
 
 export const acquisitionStatus = pgEnum('acquisition_status', ['owned', 'wishlist'])
 
+export const contributorRole = pgEnum('contributor_role', ['author', 'translator', 'editor', 'illustrator'])
+
 export const currencies = pgTable('currencies', {
   code: char('code', { length: 3 }).primaryKey(),
   symbol: text('symbol').notNull(),
@@ -55,7 +57,6 @@ export const books = pgTable(
     id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
     libraryId: uuid('library_id').notNull().references(() => libraries.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
-    authorId: uuid('author_id').references(() => authors.id, { onDelete: 'set null' }),
     isbn: text('isbn'),
     coverUrl: text('cover_url'),
     acquisition: acquisitionStatus('acquisition').notNull().default('owned'),
@@ -78,6 +79,22 @@ export const books = pgTable(
       'books_price_currency_pair',
       sql`(${t.purchasePrice} IS NULL) = (${t.purchaseCurrency} IS NULL)`,
     ),
+  }),
+)
+
+export const bookContributors = pgTable(
+  'book_contributors',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    bookId: uuid('book_id').notNull().references(() => books.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id').notNull().references(() => authors.id, { onDelete: 'restrict' }),
+    role: contributorRole('role').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    bookIdx: index('idx_book_contributors_book').on(t.bookId),
+    authorIdx: index('idx_book_contributors_author').on(t.authorId),
+    unique: unique('book_contributors_unique').on(t.bookId, t.authorId, t.role),
   }),
 )
 
@@ -126,3 +143,5 @@ export type AuthorAlias = typeof authorAliases.$inferSelect
 export type Borrower = typeof borrowers.$inferSelect
 export type Book = typeof books.$inferSelect
 export type Loan = typeof loans.$inferSelect
+export type ContributorRole = typeof contributorRole.enumValues[number]
+export type BookContributor = typeof bookContributors.$inferSelect
