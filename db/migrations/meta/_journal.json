@@ -64,6 +64,13 @@
       "when": 1776934758621,
       "tag": "0008_authors_with_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1745366400002,
+      "tag": "0009_authors_rls",
+      "breakpoints": true
     }
   ]
 }
