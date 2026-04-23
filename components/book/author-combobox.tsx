@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox'
 
 export type AuthorOption = { id: string; name: string; aliases: string[] }
@@ -15,14 +15,21 @@ type Props = {
   initialAuthorId?: string | null
   onChange?: (selection: AuthorSelection) => void
   id?: string
+  controlledSelection?: AuthorSelection
 }
 
-export function AuthorCombobox({ authors, initialAuthorId, onChange, id }: Props) {
+export function AuthorCombobox({ authors, initialAuthorId, onChange, id, controlledSelection }: Props) {
   const initialAuthor = initialAuthorId ? authors.find((a) => a.id === initialAuthorId) : undefined
   const [selection, setSelection] = useState<AuthorSelection>(
     initialAuthor ? { type: 'existing', id: initialAuthor.id, name: initialAuthor.name } : null,
   )
   const [query, setQuery] = useState(initialAuthor?.name ?? '')
+
+  useEffect(() => {
+    if (controlledSelection === undefined) return
+    setSelection(controlledSelection)
+    setQuery(controlledSelection ? controlledSelection.name : '')
+  }, [controlledSelection])
 
   const options: ComboboxOption[] = authors.map((a) => ({
     label: a.name,

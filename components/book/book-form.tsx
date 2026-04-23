@@ -13,13 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { IsbnLookup } from '@/components/book/isbn-lookup'
-import { AuthorCombobox } from '@/components/book/author-combobox'
+import { AuthorCombobox, type AuthorOption, type AuthorSelection } from '@/components/book/author-combobox'
 import { TitleCombobox } from '@/components/book/title-combobox'
 import { createBookAction, updateBookAction } from '@/lib/actions/book'
 import type { ActionState } from '@/lib/actions/library-schema'
 import type { Book, Currency } from '@/db/schema/catalog'
 import type { IsbnLookupResult } from '@/lib/openlibrary'
-import type { AuthorOption } from '@/components/book/author-combobox'
 import type { LibraryBook } from '@/components/book/title-combobox'
 
 type Props = {
@@ -46,11 +45,19 @@ export function BookForm({
   const [title, setTitle] = useState(initial?.title ?? '')
   const [isbn, setIsbn] = useState(initial?.isbn ?? '')
   const [coverUrl, setCoverUrl] = useState(initial?.coverUrl ?? '')
+  const [authorSelection, setAuthorSelection] = useState<AuthorSelection>(null)
 
   function handleAutofill(result: IsbnLookupResult | LibraryBook) {
     if (!title && result.title) setTitle(result.title)
     if (!isbn && 'isbn' in result && result.isbn) setIsbn(result.isbn)
     if (!coverUrl && result.coverUrl) setCoverUrl(result.coverUrl)
+    if (!authorSelection) {
+      if ('authorId' in result && result.authorId && result.authorName) {
+        setAuthorSelection({ type: 'existing', id: result.authorId, name: result.authorName })
+      } else if ('author' in result && result.author) {
+        setAuthorSelection({ type: 'new', name: result.author })
+      }
+    }
   }
 
   return (
@@ -84,6 +91,7 @@ export function BookForm({
           id="author"
           authors={allAuthors}
           initialAuthorId={initial?.authorId ?? null}
+          controlledSelection={authorSelection}
         />
       </div>
 
