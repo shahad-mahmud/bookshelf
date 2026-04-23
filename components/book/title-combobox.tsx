@@ -1,14 +1,20 @@
 'use client'
 
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox'
+import type { ContributorRole } from '@/db/schema/catalog'
+
+export type BookContributor = {
+  authorId: string
+  authorName: string
+  role: ContributorRole
+}
 
 export type LibraryBook = {
   id: string
   title: string
-  authorId: string | null
-  authorName: string | null
   isbn: string | null
   coverUrl: string | null
+  contributors: BookContributor[]
 }
 
 type Props = {
