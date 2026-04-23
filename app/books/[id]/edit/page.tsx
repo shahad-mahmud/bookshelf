@@ -1,8 +1,10 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { eq, and } from 'drizzle-orm'
 import { getCurrentLibrary } from '@/lib/library/current'
 import { dbAsUser } from '@/db/client-server'
+import { createServerClient } from '@/lib/supabase/server'
 import { books, currencies } from '@/db/schema/catalog'
+import { getAutocompleteData } from '@/lib/actions/book-autocomplete'
 import { BookForm } from '@/components/book/book-form'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 
@@ -13,9 +15,13 @@ export default async function EditBookPage({
 }) {
   const { id } = await params
 
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
   const [current, db] = await Promise.all([getCurrentLibrary(), dbAsUser()])
 
-  const [book, allCurrencies] = await Promise.all([
+  const [book, allCurrencies, autocomplete] = await Promise.all([
     db.query((tx) =>
       tx
         .select()
@@ -24,6 +30,7 @@ export default async function EditBookPage({
         .limit(1),
     ).then((r) => r[0]),
     db.query((tx) => tx.select().from(currencies).orderBy(currencies.code)),
+    getAutocompleteData(user.id, current.id),
   ])
 
   if (!book) notFound()
@@ -35,7 +42,14 @@ export default async function EditBookPage({
           <CardTitle>Edit book</CardTitle>
         </CardHeader>
         <CardContent>
-          <BookForm mode="edit" initial={book} libraryId={current.id} currencies={allCurrencies} />
+          <BookForm
+            mode="edit"
+            initial={book}
+            libraryId={current.id}
+            currencies={allCurrencies}
+            allAuthors={autocomplete.allAuthors}
+            libraryBooks={autocomplete.libraryBooks}
+          />
         </CardContent>
       </Card>
     </main>

@@ -13,30 +13,43 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { IsbnLookup } from '@/components/book/isbn-lookup'
+import { AuthorCombobox } from '@/components/book/author-combobox'
+import { TitleCombobox } from '@/components/book/title-combobox'
 import { createBookAction, updateBookAction } from '@/lib/actions/book'
 import type { ActionState } from '@/lib/actions/library-schema'
 import type { Book, Currency } from '@/db/schema/catalog'
 import type { IsbnLookupResult } from '@/lib/openlibrary'
+import type { AuthorOption } from '@/components/book/author-combobox'
+import type { LibraryBook } from '@/components/book/title-combobox'
 
 type Props = {
   libraryId: string
   currencies: Currency[]
+  allAuthors: AuthorOption[]
+  libraryBooks: LibraryBook[]
 } & (
   | { mode: 'create'; initial?: undefined }
   | { mode: 'edit'; initial: Book }
 )
 
-export function BookForm({ libraryId, currencies, mode, initial }: Props) {
+export function BookForm({
+  libraryId,
+  currencies,
+  allAuthors,
+  libraryBooks,
+  mode,
+  initial,
+}: Props) {
   const action = mode === 'create' ? createBookAction : updateBookAction
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, { ok: true })
 
   const [title, setTitle] = useState(initial?.title ?? '')
-  const [author, setAuthor] = useState(initial?.author ?? '')
+  const [isbn, setIsbn] = useState(initial?.isbn ?? '')
   const [coverUrl, setCoverUrl] = useState(initial?.coverUrl ?? '')
 
-  const handleIsbnResult = (result: IsbnLookupResult) => {
+  function handleAutofill(result: IsbnLookupResult | LibraryBook) {
     if (!title && result.title) setTitle(result.title)
-    if (!author && result.author) setAuthor(result.author)
+    if (!isbn && 'isbn' in result && result.isbn) setIsbn(result.isbn)
     if (!coverUrl && result.coverUrl) setCoverUrl(result.coverUrl)
   }
 
@@ -47,35 +60,30 @@ export function BookForm({ libraryId, currencies, mode, initial }: Props) {
         <input type="hidden" name="id" value={initial.id} />
       ) : null}
 
-      {/* ISBN lookup — renders the isbn input + Look up button */}
-      <IsbnLookup initial={initial?.isbn ?? ''} onResult={handleIsbnResult} />
+      <IsbnLookup initial={initial?.isbn ?? ''} onResult={handleAutofill} />
 
       {/* Title */}
       <div className="space-y-1.5">
         <Label htmlFor="title">
           Title <span className="text-destructive">*</span>
         </Label>
-        <Input
+        <input type="hidden" name="title" value={title} />
+        <TitleCombobox
           id="title"
-          name="title"
-          type="text"
-          required
-          maxLength={300}
+          books={libraryBooks}
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={setTitle}
+          onAutofill={handleAutofill}
         />
       </div>
 
       {/* Author */}
       <div className="space-y-1.5">
         <Label htmlFor="author">Author</Label>
-        <Input
+        <AuthorCombobox
           id="author"
-          name="author"
-          type="text"
-          maxLength={300}
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
+          authors={allAuthors}
+          initialAuthorId={initial?.authorId ?? null}
         />
       </div>
 
@@ -167,7 +175,6 @@ export function BookForm({ libraryId, currencies, mode, initial }: Props) {
         />
       </div>
 
-      {/* Error / status */}
       {state.message ? (
         <p
           role={state.ok ? 'status' : 'alert'}
