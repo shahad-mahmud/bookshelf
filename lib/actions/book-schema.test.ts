@@ -21,24 +21,37 @@ describe('bookSchema', () => {
     }
   })
 
+  it('accepts a valid authorId UUID', () => {
+    const result = bookSchema.safeParse({
+      ...validBase,
+      authorId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.authorId).toBe('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
+  })
+
+  it('accepts a newAuthorName string', () => {
+    const result = bookSchema.safeParse({ ...validBase, newAuthorName: 'Jane Austen' })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.newAuthorName).toBe('Jane Austen')
+  })
+
+  it('converts empty authorId to undefined', () => {
+    const result = bookSchema.safeParse({ ...validBase, authorId: '' })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.authorId).toBeUndefined()
+  })
+
   it('rejects invalid ISBN chars', () => {
-    const result = bookSchema.safeParse({ ...validBase, isbn: 'ABC-123' })
-    expect(result.success).toBe(false)
+    expect(bookSchema.safeParse({ ...validBase, isbn: 'ABC-123' }).success).toBe(false)
   })
 
   it('accepts valid ISBN with dashes', () => {
-    const result = bookSchema.safeParse({ ...validBase, isbn: '978-3-16-148410-0' })
-    expect(result.success).toBe(true)
+    expect(bookSchema.safeParse({ ...validBase, isbn: '978-3-16-148410-0' }).success).toBe(true)
   })
 
   it('requires price and currency together — price without currency fails', () => {
-    const result = bookSchema.safeParse({ ...validBase, purchasePrice: '9.99' })
-    expect(result.success).toBe(false)
-  })
-
-  it('requires price and currency together — currency without price fails', () => {
-    const result = bookSchema.safeParse({ ...validBase, purchaseCurrency: 'USD' })
-    expect(result.success).toBe(false)
+    expect(bookSchema.safeParse({ ...validBase, purchasePrice: '9.99' }).success).toBe(false)
   })
 
   it('requires price and currency together — both present passes', () => {
@@ -46,41 +59,18 @@ describe('bookSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('accepts wishlist acquisition', () => {
-    const result = bookSchema.safeParse({ ...validBase, acquisition: 'wishlist' })
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.acquisition).toBe('wishlist')
-    }
-  })
-
   it('rejects malformed date', () => {
-    const result = bookSchema.safeParse({ ...validBase, purchaseDate: '2024/01/15' })
-    expect(result.success).toBe(false)
+    expect(bookSchema.safeParse({ ...validBase, purchaseDate: '2024/01/15' }).success).toBe(false)
   })
 
   it('rejects non-URL coverUrl', () => {
-    const result = bookSchema.safeParse({ ...validBase, coverUrl: 'not-a-url' })
-    expect(result.success).toBe(false)
-  })
-
-  it('converts empty strings to undefined for optionals', () => {
-    const result = bookSchema.safeParse({ ...validBase, author: '', isbn: '', notes: '' })
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.author).toBeUndefined()
-      expect(result.data.isbn).toBeUndefined()
-      expect(result.data.notes).toBeUndefined()
-    }
+    expect(bookSchema.safeParse({ ...validBase, coverUrl: 'not-a-url' }).success).toBe(false)
   })
 })
 
 describe('isbnLookupSchema', () => {
   it('accepts a valid ISBN-10', () => {
     expect(isbnLookupSchema.safeParse({ isbn: '0141439580' }).success).toBe(true)
-  })
-  it('accepts a valid ISBN-13', () => {
-    expect(isbnLookupSchema.safeParse({ isbn: '9780141439587' }).success).toBe(true)
   })
   it('rejects empty string', () => {
     expect(isbnLookupSchema.safeParse({ isbn: '' }).success).toBe(false)

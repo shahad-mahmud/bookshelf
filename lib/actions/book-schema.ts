@@ -7,7 +7,8 @@ export const bookSchema = z
   .object({
     libraryId: z.uuid(),
     title: z.string().trim().min(1, 'Title is required').max(300),
-    author: z.preprocess(emptyToUndef, z.string().trim().max(300).optional()),
+    authorId: z.preprocess(emptyToUndef, z.uuid().optional()),
+    newAuthorName: z.preprocess(emptyToUndef, z.string().trim().max(300).optional()),
     isbn: z.preprocess(
       emptyToUndef,
       z.string().trim().regex(/^[0-9Xx-]+$/, 'ISBN must be digits/X/dashes').max(20).optional(),
