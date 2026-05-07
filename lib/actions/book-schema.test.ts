@@ -85,6 +85,13 @@ describe('coverUrl SSRF refinement', () => {
     ['raw IPv4 literal', 'https://8.8.8.8/cover.jpg'],
     ['*.local', 'https://router.local/cover.jpg'],
     ['*.internal', 'https://api.internal/cover.jpg'],
+    // Numeric IPv4 forms that Node's resolver accepts but the old regex missed.
+    ['decimal IPv4 (loopback)', 'https://2130706433/cover.jpg'],
+    ['decimal IPv4 (any)', 'https://0/cover.jpg'],
+    ['hex IPv4 dotted', 'https://0x7f.0.0.1/cover.jpg'],
+    ['hex IPv4 single', 'https://0x7f000001/cover.jpg'],
+    ['octal IPv4', 'https://0177.0.0.1/cover.jpg'],
+    ['short-form IPv4', 'https://127.1/cover.jpg'],
   ])('rejects %s', (_label, url) => {
     const result = bookSchema.safeParse({ ...base, coverUrl: url })
     expect(result.success).toBe(false)

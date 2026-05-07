@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { IsbnLookupResult } from '@/lib/openlibrary'
+import { isLexicallySafeHttpsUrl } from '@/lib/safe-url'
 
 const emptyToUndef = (v: unknown) => (v === '' || v === null ? undefined : v)
 
@@ -8,28 +9,6 @@ const contributorSchema = z.object({
   newAuthorName: z.preprocess(emptyToUndef, z.string().trim().max(300).optional()),
   role: z.enum(['author', 'translator', 'editor', 'illustrator']),
 })
-
-function isSafeHttpsUrl(raw: string): boolean {
-  let u: URL
-  try {
-    u = new URL(raw)
-  } catch {
-    return false
-  }
-  if (u.protocol !== 'https:') return false
-
-  const host = u.hostname.toLowerCase()
-  if (host === 'localhost') return false
-  if (host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.localhost')) return false
-
-  // Reject any IPv4 literal — book covers don't legitimately use bare IPs.
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return false
-
-  // IPv6 literal: URL.hostname strips the surrounding brackets but the address still contains ":".
-  if (host.includes(':')) return false
-
-  return true
-}
 
 export const bookSchema = z
   .object({
@@ -42,7 +21,7 @@ export const bookSchema = z
     ),
     coverUrl: z.preprocess(
       emptyToUndef,
-      z.url().refine(isSafeHttpsUrl, { message: 'Cover URL must be a public https:// address.' }).optional(),
+      z.url().refine(isLexicallySafeHttpsUrl, { message: 'Cover URL must be a public https:// address.' }).optional(),
     ),
     acquisition: z.enum(['owned', 'wishlist']).default('owned'),
     purchaseDate: z.preprocess(

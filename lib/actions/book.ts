@@ -24,6 +24,7 @@ function messageFor(reason: CoverFetchError): string {
     case 'too_large':    return 'Cover image is too large (max 5 MB).'
     case 'wrong_type':   return "That URL doesn't appear to be an image."
     case 'storage_failed': return "Couldn't save the cover. Please try again."
+    case 'unsafe_url':   return 'Cover URL must be a public https:// address.'
   }
 }
 
@@ -62,7 +63,6 @@ export async function createBookAction(
   const { contributors: contributorInputs, ...bookData } = parsed.data
   const bookId = crypto.randomUUID()
 
-  // If the user supplied a non-canonical cover URL, fetch and store it.
   if (bookData.coverUrl && !isCanonicalCoverUrl({ url: bookData.coverUrl, libraryId: bookData.libraryId, bookId })) {
     const supabase = await createServerClient()
     const result = await fetchAndStoreCover({
@@ -75,7 +75,6 @@ export async function createBookAction(
     bookData.coverUrl = result.storageUrl
   }
 
-  // Resolve all authors first (outside the transaction — these are network calls)
   const resolvedForCreate = await Promise.all(
     contributorInputs.map(async (c) => ({
       authorId: await resolveAuthorId(db, c.authorId, c.newAuthorName),
@@ -119,16 +118,37 @@ export async function updateBookAction(
     return { ok: false, message: parsed.error.issues[0]?.message ?? 'Invalid data' }
   }
 
+  // Refuse mismatched libraryId across the two parsed payloads. Both come from
+  // the same form; a divergence means tampering. Without this, an attacker who
+  // is a member of library X could supply (idParsed.libraryId = Y, bookData.libraryId = X)
+  // and cause an upload into X's folder while filtering the UPDATE by Y.
+  if (idParsed.data.libraryId !== parsed.data.libraryId) {
+    return { ok: false, message: 'Invalid book.' }
+  }
+
   const db = await dbAsUser()
   const { contributors: contributorInputs, ...bookData } = parsed.data
   const bookId = idParsed.data.id
+  const libraryId = idParsed.data.libraryId
 
-  // If a non-canonical cover URL came in, fetch+store and rewrite the URL.
-  if (bookData.coverUrl && !isCanonicalCoverUrl({ url: bookData.coverUrl, libraryId: bookData.libraryId, bookId })) {
+  // Read the persisted row first so we can (a) confirm it exists before doing
+  // any storage work and (b) decide whether to remove a previously-stored
+  // cover when the field is cleared.
+  const existing = await db.query((tx) =>
+    tx
+      .select({ coverUrl: books.coverUrl })
+      .from(books)
+      .where(and(eq(books.id, bookId), eq(books.libraryId, libraryId)))
+      .limit(1),
+  )
+  if (existing.length === 0) return { ok: false, message: 'Book not found.' }
+  const previousCoverUrl = existing[0].coverUrl
+
+  if (bookData.coverUrl && !isCanonicalCoverUrl({ url: bookData.coverUrl, libraryId, bookId })) {
     const supabase = await createServerClient()
     const result = await fetchAndStoreCover({
       externalUrl: bookData.coverUrl,
-      libraryId: bookData.libraryId,
+      libraryId,
       bookId,
       supabase,
     })
@@ -153,7 +173,7 @@ export async function updateBookAction(
       // Drizzle skips undefined keys in .set(), which means a cleared coverUrl would
       // leave the old value untouched. Force null so clearing actually clears.
       .set({ ...bookData, coverUrl: bookData.coverUrl ?? null })
-      .where(and(eq(books.id, bookId), eq(books.libraryId, idParsed.data.libraryId)))
+      .where(and(eq(books.id, bookId), eq(books.libraryId, libraryId)))
       .returning({ id: books.id })
     if (rows.length === 0) return null
 
@@ -167,10 +187,16 @@ export async function updateBookAction(
 
   if (!updated) return { ok: false, message: 'Book not found.' }
 
-  // If the user cleared the cover field, remove the stored object best-effort.
-  if (bookData.coverUrl === undefined) {
+  // Remove the stored object only when the user actually cleared a cover that
+  // we had mirrored. Skip when the previous URL was external (legacy) or
+  // already null — there's nothing of ours to delete.
+  const cleared = bookData.coverUrl === undefined
+  const previousWasOurs =
+    previousCoverUrl != null &&
+    isCanonicalCoverUrl({ url: previousCoverUrl, libraryId, bookId })
+  if (cleared && previousWasOurs) {
     const supabase = await createServerClient()
-    await removeCover({ libraryId: bookData.libraryId, bookId, supabase })
+    await removeCover({ libraryId, bookId, supabase })
   }
 
   revalidateTag('library-autocomplete', 'max')
@@ -187,9 +213,13 @@ export async function deleteBookAction(
   }
 
   const db = await dbAsUser()
-  await db.query((tx) =>
-    tx.delete(books).where(and(eq(books.id, parsed.data.id), eq(books.libraryId, parsed.data.libraryId))),
+  const deleted = await db.query((tx) =>
+    tx
+      .delete(books)
+      .where(and(eq(books.id, parsed.data.id), eq(books.libraryId, parsed.data.libraryId)))
+      .returning({ id: books.id }),
   )
+  if (deleted.length === 0) return { ok: false, message: 'Book not found.' }
 
   // Best-effort: remove any stored cover for this (library_id, book_id).
   const supabase = await createServerClient()

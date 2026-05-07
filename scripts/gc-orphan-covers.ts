@@ -67,7 +67,26 @@ async function main() {
     // upload before the DB read has its row in `referenced` and is safe.
     const folders = await listLibraryFolders(supabase)
     const allObjects: string[] = []
-    for (const f of folders) allObjects.push(...(await listFolderObjects(supabase, f)))
+    let listingComplete = true
+    for (const f of folders) {
+      try {
+        allObjects.push(...(await listFolderObjects(supabase, f)))
+      } catch (err) {
+        // Listing must be complete to compute orphans correctly: a missing
+        // folder's contents would all look unreferenced, yet they may well be
+        // referenced. Note the failure and skip GC for this run.
+        listingComplete = false
+        console.error(
+          `[gc-covers] folder list failed folder=${f}:`,
+          err instanceof Error ? err.message : err,
+        )
+      }
+    }
+    if (!listingComplete) {
+      console.error('[gc-covers] aborting GC: incomplete bucket listing — would risk deleting referenced objects')
+      process.exitCode = 1
+      return
+    }
 
     const referenced = new Set<string>()
     const rows = await db
@@ -81,15 +100,21 @@ async function main() {
       `[gc-covers] referenced=${referenced.size} in_bucket=${allObjects.length} orphans=${orphans.length}`,
     )
 
+    let removed = 0
+    let failedBatches = 0
     for (let i = 0; i < orphans.length; i += 100) {
       const batch = orphans.slice(i, i + 100)
       const { error } = await supabase.storage.from(BUCKET).remove(batch)
       if (error) {
+        failedBatches++
         console.error(`[gc-covers] remove batch failed:`, error.message)
       } else {
+        removed += batch.length
         console.log(`[gc-covers] removed batch of ${batch.length}`)
       }
     }
+    console.log(`[gc-covers] summary: removed=${removed} failed_batches=${failedBatches}`)
+    if (failedBatches > 0) process.exitCode = 1
   } finally {
     await close()
   }

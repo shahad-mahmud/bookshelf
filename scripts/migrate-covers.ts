@@ -37,34 +37,42 @@ async function main() {
 
   try {
     for (const row of rows) {
-      if (!row.coverUrl) {
-        summary.skipped++
-        continue
-      }
-      if (isCanonicalCoverUrl({ url: row.coverUrl, libraryId: row.libraryId, bookId: row.id })) {
-        summary.skipped++
-        continue
-      }
+      try {
+        if (!row.coverUrl) {
+          summary.skipped++
+          continue
+        }
+        if (isCanonicalCoverUrl({ url: row.coverUrl, libraryId: row.libraryId, bookId: row.id })) {
+          summary.skipped++
+          continue
+        }
 
-      const result = await fetchAndStoreCover({
-        externalUrl: row.coverUrl,
-        libraryId: row.libraryId,
-        bookId: row.id,
-        supabase,
-      })
-      if (!result.ok) {
-        summary.fail[result.reason] = (summary.fail[result.reason] ?? 0) + 1
-        console.warn(`[migrate-covers] fail id=${row.id} reason=${result.reason}`)
-        continue
+        const result = await fetchAndStoreCover({
+          externalUrl: row.coverUrl,
+          libraryId: row.libraryId,
+          bookId: row.id,
+          supabase,
+        })
+        if (!result.ok) {
+          summary.fail[result.reason] = (summary.fail[result.reason] ?? 0) + 1
+          console.warn(`[migrate-covers] fail id=${row.id} reason=${result.reason}`)
+          continue
+        }
+        await db.update(books).set({ coverUrl: result.storageUrl }).where(eq(books.id, row.id))
+        summary.ok++
+        console.log(`[migrate-covers] ok id=${row.id}`)
+      } catch (err) {
+        // A single row's exception (DB constraint, connection blip, etc) must
+        // not abort the whole backfill — keep going so partial progress lands.
+        summary.fail.threw = (summary.fail.threw ?? 0) + 1
+        console.error(`[migrate-covers] threw id=${row.id}`, err instanceof Error ? err.message : err)
       }
-      await db.update(books).set({ coverUrl: result.storageUrl }).where(eq(books.id, row.id))
-      summary.ok++
-      console.log(`[migrate-covers] ok id=${row.id}`)
     }
 
     console.log(
       `[migrate-covers] summary: ok=${summary.ok} skipped=${summary.skipped} fail=${JSON.stringify(summary.fail)}`,
     )
+    if (Object.keys(summary.fail).length > 0) process.exitCode = 1
   } finally {
     await close()
   }

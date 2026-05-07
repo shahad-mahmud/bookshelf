@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import * as dnsModule from 'node:dns'
 import sharp from 'sharp'
 import { canonicalCoverUrl, isCanonicalCoverUrl, fetchAndStoreCover, removeCover } from './cover-storage'
 
@@ -92,6 +93,15 @@ function mockFetchOnce(response: { body?: Buffer; status?: number; headers?: Rec
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+})
+
+// fetchAndStoreCover now resolves DNS for the external host before fetching
+// (defense in depth against rebinding). Stub the lookup with a public address
+// for every test in this suite so no real network resolution happens.
+beforeEach(() => {
+  vi.spyOn(dnsModule.promises, 'lookup').mockImplementation(
+    async () => [{ address: '93.184.216.34', family: 4 }] as never,
+  )
 })
 
 describe('fetchAndStoreCover', () => {
@@ -261,6 +271,82 @@ describe('fetchAndStoreCover', () => {
       supabase: storage.client as unknown as never,
     })
     expect(result).toEqual({ ok: false, reason: 'wrong_type' })
+    expect(storage.calls.upload).toHaveLength(0)
+  })
+
+  it('refuses to follow 3xx redirects (SSRF defense)', async () => {
+    // redirect: 'manual' surfaces 3xx as a normal Response. fetchOnce must
+    // treat it as a hard failure rather than chasing the Location header,
+    // because the redirect target hasn't passed our SSRF policy.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 302,
+        headers: new Headers({ location: 'http://169.254.169.254/latest/meta-data/' }),
+        arrayBuffer: async () => new ArrayBuffer(0),
+      }),
+    )
+    const storage = makeStorage()
+    const result = await fetchAndStoreCover({
+      externalUrl: 'https://example.com/redirect.jpg',
+      libraryId: LIBRARY, bookId: BOOK,
+      supabase: storage.client as unknown as never,
+    })
+    expect(result).toEqual({ ok: false, reason: 'http_error' })
+    expect(storage.calls.upload).toHaveLength(0)
+  })
+
+  it('refuses fetch when DNS resolves to a private address (rebinding)', async () => {
+    // Override the suite-wide public stub for this one test.
+    vi.spyOn(dnsModule.promises, 'lookup').mockImplementation(
+      async () => [{ address: '169.254.169.254', family: 4 }] as never,
+    )
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const storage = makeStorage()
+    const result = await fetchAndStoreCover({
+      externalUrl: 'https://rebind.example.com/cover.jpg',
+      libraryId: LIBRARY, bookId: BOOK,
+      supabase: storage.client as unknown as never,
+    })
+    expect(result).toEqual({ ok: false, reason: 'unsafe_url' })
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(storage.calls.upload).toHaveLength(0)
+  })
+
+  it('refuses fetch on a lexically-unsafe URL (no DNS, no fetch)', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const storage = makeStorage()
+    const result = await fetchAndStoreCover({
+      externalUrl: 'http://example.com/cover.jpg', // http scheme — rejected lexically
+      libraryId: LIBRARY, bookId: BOOK,
+      supabase: storage.client as unknown as never,
+    })
+    expect(result).toEqual({ ok: false, reason: 'unsafe_url' })
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('does NOT bypass size cap when Content-Length is malformed (NaN)', async () => {
+    // A response with a non-numeric content-length must still be fully
+    // size-checked against the body length — Number("foo") is NaN, and
+    // NaN > MAX_BYTES is false, so a previous bug would skip the early reject
+    // and fall through to the byte-length check. Verify the byte-length check
+    // catches it.
+    const big = Buffer.alloc(6 * 1024 * 1024, 0xff) // 6 MB > MAX_BYTES (5 MB)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      headers: new Headers({ 'content-type': 'image/jpeg', 'content-length': 'not-a-number' }),
+      arrayBuffer: async () => big.buffer.slice(big.byteOffset, big.byteOffset + big.byteLength),
+    }))
+    const storage = makeStorage()
+    const result = await fetchAndStoreCover({
+      externalUrl: 'https://example.com/sneaky.jpg',
+      libraryId: LIBRARY, bookId: BOOK,
+      supabase: storage.client as unknown as never,
+    })
+    expect(result).toEqual({ ok: false, reason: 'too_large' })
     expect(storage.calls.upload).toHaveLength(0)
   })
 
