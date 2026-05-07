@@ -7,8 +7,24 @@ import { dbAsUser } from '@/db/client-server'
 import { books, authors, bookContributors } from '@/db/schema/catalog'
 import { bookSchema, bookIdSchema, isbnLookupSchema, parseContributors } from './book-schema'
 import { lookupIsbn } from '@/lib/openlibrary'
+import { createServerClient } from '@/lib/supabase/server'
+import {
+  fetchAndStoreCover,
+  isCanonicalCoverUrl,
+  type CoverFetchError,
+} from '@/lib/cover-storage'
 import type { ActionState } from './library-schema'
 import type { IsbnLookupState } from './book-schema'
+
+function messageFor(reason: CoverFetchError): string {
+  switch (reason) {
+    case 'fetch_failed': return "Couldn't reach the cover image after a few tries. Check the URL or try again later."
+    case 'http_error':   return "The cover URL didn't return an image (server error)."
+    case 'too_large':    return 'Cover image is too large (max 5 MB).'
+    case 'wrong_type':   return "That URL doesn't appear to be an image."
+    case 'storage_failed': return "Couldn't save the cover. Please try again."
+  }
+}
 
 async function resolveAuthorId(
   db: Awaited<ReturnType<typeof dbAsUser>>,
@@ -43,6 +59,20 @@ export async function createBookAction(
 
   const db = await dbAsUser()
   const { contributors: contributorInputs, ...bookData } = parsed.data
+  const bookId = crypto.randomUUID()
+
+  // If the user supplied a non-canonical cover URL, fetch and store it.
+  if (bookData.coverUrl && !isCanonicalCoverUrl({ url: bookData.coverUrl, libraryId: bookData.libraryId, bookId })) {
+    const supabase = await createServerClient()
+    const result = await fetchAndStoreCover({
+      externalUrl: bookData.coverUrl,
+      libraryId: bookData.libraryId,
+      bookId,
+      supabase,
+    })
+    if (!result.ok) return { ok: false, message: messageFor(result.reason) }
+    bookData.coverUrl = result.storageUrl
+  }
 
   // Resolve all authors first (outside the transaction — these are network calls)
   const resolvedForCreate = await Promise.all(
@@ -52,13 +82,15 @@ export async function createBookAction(
     })),
   )
 
-  // Single transaction: insert book + contributors together
   const [book] = await db.query(async (tx) => {
-    const rows = await tx.insert(books).values(bookData).returning({ id: books.id })
-    const bookId = rows[0].id
+    const rows = await tx
+      .insert(books)
+      .values({ ...bookData, id: bookId })
+      .returning({ id: books.id })
+    const insertedId = rows[0].id
     const validContributors = resolvedForCreate
       .filter((c): c is { authorId: string; role: typeof c.role } => c.authorId !== undefined)
-      .map((c) => ({ bookId, authorId: c.authorId, role: c.role }))
+      .map((c) => ({ bookId: insertedId, authorId: c.authorId, role: c.role }))
     if (validContributors.length > 0) {
       await tx.insert(bookContributors).values(validContributors)
     }
