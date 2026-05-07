@@ -1,4 +1,7 @@
-import 'server-only'
+// Intentionally NOT 'server-only' so tsx scripts (e.g. scripts/migrate-covers.ts)
+// can import it. This module pulls in `sharp`, which is a native Node-only module —
+// Next.js will fail any client-side build that reaches it, providing the same
+// safeguard against accidental client imports.
 import sharp from 'sharp'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { env } from '@/lib/env'
