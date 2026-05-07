@@ -144,3 +144,27 @@ function safeHost(url: string): string {
     return '<unparseable>'
   }
 }
+
+export async function removeCover(args: {
+  libraryId: string
+  bookId: string
+  supabase: SupabaseClient
+}): Promise<void> {
+  const path = `${args.libraryId}/${args.bookId}.webp`
+  try {
+    const { error } = await args.supabase.storage.from(COVER_BUCKET).remove([path])
+    if (error) {
+      console.error('[cover-storage] remove failed', {
+        libraryId: args.libraryId,
+        bookId: args.bookId,
+        reason: 'remove_error',
+      })
+    }
+  } catch (err) {
+    console.error('[cover-storage] remove threw', {
+      libraryId: args.libraryId,
+      bookId: args.bookId,
+      err: err instanceof Error ? err.message : String(err),
+    })
+  }
+}

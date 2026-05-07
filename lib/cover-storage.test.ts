@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import sharp from 'sharp'
-import { canonicalCoverUrl, isCanonicalCoverUrl, fetchAndStoreCover } from './cover-storage'
+import { canonicalCoverUrl, isCanonicalCoverUrl, fetchAndStoreCover, removeCover } from './cover-storage'
 
 const LIBRARY = '00000000-0000-0000-0000-000000000001'
 const BOOK = '00000000-0000-0000-0000-000000000002'
@@ -291,5 +291,33 @@ describe('fetchAndStoreCover', () => {
     expect(out.height).toBe(50)
     // Metadata should not carry forward orientation.
     expect(out.orientation).toBeUndefined()
+  })
+})
+
+describe('removeCover', () => {
+  const LIBRARY = '00000000-0000-0000-0000-000000000001'
+  const BOOK = '00000000-0000-0000-0000-000000000002'
+
+  it('calls storage.remove with the canonical path', async () => {
+    const remove = vi.fn().mockResolvedValue({ data: [{ name: `${LIBRARY}/${BOOK}.webp` }], error: null })
+    const supabase = { storage: { from: () => ({ remove }) } } as unknown as never
+
+    await removeCover({ libraryId: LIBRARY, bookId: BOOK, supabase })
+
+    expect(remove).toHaveBeenCalledWith([`${LIBRARY}/${BOOK}.webp`])
+  })
+
+  it('does not throw when storage returns an error', async () => {
+    const remove = vi.fn().mockResolvedValue({ data: null, error: { message: 'not found' } })
+    const supabase = { storage: { from: () => ({ remove }) } } as unknown as never
+
+    await expect(removeCover({ libraryId: LIBRARY, bookId: BOOK, supabase })).resolves.toBeUndefined()
+  })
+
+  it('does not throw when storage.remove rejects', async () => {
+    const remove = vi.fn().mockRejectedValue(new Error('network down'))
+    const supabase = { storage: { from: () => ({ remove }) } } as unknown as never
+
+    await expect(removeCover({ libraryId: LIBRARY, bookId: BOOK, supabase })).resolves.toBeUndefined()
   })
 })
