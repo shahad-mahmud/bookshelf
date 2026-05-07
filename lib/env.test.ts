@@ -82,10 +82,12 @@ describe('server env validation (lib/env-server.ts)', () => {
     process.env.DIRECT_URL = 'postgres://direct'
     process.env.RESEND_API_KEY = 're_test'
     process.env.EMAIL_FROM = 'noreply@example.com'
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service_role_test'
     // @ts-expect-error — cache-busting query string
     const mod: ServerEnvModule = await import('./env-server?case=valid')
     expect(mod.serverEnv.DATABASE_URL).toBe('postgres://pool')
     expect(mod.serverEnv.DEFAULT_CURRENCY).toBe('BDT')
+    expect(mod.serverEnv.SUPABASE_SERVICE_ROLE_KEY).toBe('service_role_test')
   })
 
   it('defaults DEFAULT_CURRENCY on empty string', async () => {
@@ -93,10 +95,22 @@ describe('server env validation (lib/env-server.ts)', () => {
     process.env.DIRECT_URL = 'postgres://direct'
     process.env.RESEND_API_KEY = 're_test'
     process.env.EMAIL_FROM = 'noreply@example.com'
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service_role_test'
     process.env.DEFAULT_CURRENCY = ''
     // @ts-expect-error — cache-busting query string
     const mod: ServerEnvModule = await import('./env-server?case=empty-currency')
     expect(mod.serverEnv.DEFAULT_CURRENCY).toBe('BDT')
+  })
+
+  it('throws when SUPABASE_SERVICE_ROLE_KEY is missing', async () => {
+    process.env.DATABASE_URL = 'postgres://x'
+    process.env.DIRECT_URL = 'postgres://y'
+    process.env.RESEND_API_KEY = 're_abc'
+    process.env.EMAIL_FROM = 'noreply@example.com'
+    // @ts-expect-error — cache-busting query string
+    await expect(import('./env-server?case=missing-service-role')).rejects.toThrow(
+      /SUPABASE_SERVICE_ROLE_KEY/,
+    )
   })
 
   it('throws when RESEND_API_KEY is missing', async () => {
