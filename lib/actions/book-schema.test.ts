@@ -63,6 +63,47 @@ describe('bookSchema', () => {
   })
 })
 
+describe('coverUrl SSRF refinement', () => {
+  const base = {
+    libraryId: '00000000-0000-0000-0000-000000000000',
+    title: 'A',
+    contributors: [{ role: 'author' as const, newAuthorName: 'X' }],
+  }
+
+  it.each([
+    ['http (non-https)', 'http://example.com/cover.jpg'],
+    ['file scheme', 'file:///etc/passwd'],
+    ['javascript scheme', 'javascript:alert(1)'],
+    ['data url', 'data:image/png;base64,AAAA'],
+    ['localhost', 'https://localhost/cover.jpg'],
+    ['127.0.0.1', 'https://127.0.0.1/cover.jpg'],
+    ['IPv6 loopback', 'https://[::1]/cover.jpg'],
+    ['private ipv4 10.x', 'https://10.0.0.1/cover.jpg'],
+    ['private ipv4 192.168.x', 'https://192.168.1.1/cover.jpg'],
+    ['private ipv4 172.16.x', 'https://172.16.0.1/cover.jpg'],
+    ['link-local 169.254.x', 'https://169.254.169.254/cover.jpg'],
+    ['raw IPv4 literal', 'https://8.8.8.8/cover.jpg'],
+    ['*.local', 'https://router.local/cover.jpg'],
+    ['*.internal', 'https://api.internal/cover.jpg'],
+  ])('rejects %s', (_label, url) => {
+    const result = bookSchema.safeParse({ ...base, coverUrl: url })
+    expect(result.success).toBe(false)
+  })
+
+  it('accepts a normal https url with a hostname', () => {
+    const result = bookSchema.safeParse({
+      ...base,
+      coverUrl: 'https://covers.openlibrary.org/b/id/123-L.jpg',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts an empty coverUrl (preprocessor turns it into undefined)', () => {
+    const result = bookSchema.safeParse({ ...base, coverUrl: '' })
+    expect(result.success).toBe(true)
+  })
+})
+
 describe('parseContributors', () => {
   it('parses indexed form data into array', () => {
     const flat: Record<string, string> = {
