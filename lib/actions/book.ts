@@ -11,6 +11,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import {
   fetchAndStoreCover,
   isCanonicalCoverUrl,
+  removeCover,
   type CoverFetchError,
 } from '@/lib/cover-storage'
 import type { ActionState } from './library-schema'
@@ -120,11 +121,24 @@ export async function updateBookAction(
 
   const db = await dbAsUser()
   const { contributors: contributorInputs, ...bookData } = parsed.data
+  const bookId = idParsed.data.id
 
-  // Resolve all authors first (outside the transaction — these are network calls)
+  // If a non-canonical cover URL came in, fetch+store and rewrite the URL.
+  if (bookData.coverUrl && !isCanonicalCoverUrl({ url: bookData.coverUrl, libraryId: bookData.libraryId, bookId })) {
+    const supabase = await createServerClient()
+    const result = await fetchAndStoreCover({
+      externalUrl: bookData.coverUrl,
+      libraryId: bookData.libraryId,
+      bookId,
+      supabase,
+    })
+    if (!result.ok) return { ok: false, message: messageFor(result.reason) }
+    bookData.coverUrl = result.storageUrl
+  }
+
   const resolved = await Promise.all(
     contributorInputs.map(async (c) => ({
-      bookId: idParsed.data.id,
+      bookId,
       authorId: await resolveAuthorId(db, c.authorId, c.newAuthorName),
       role: c.role,
     })),
@@ -133,16 +147,17 @@ export async function updateBookAction(
     (c): c is { bookId: string; authorId: string; role: typeof c.role } => c.authorId !== undefined,
   )
 
-  // Single transaction: update book + replace contributors
   const updated = await db.query(async (tx) => {
     const rows = await tx
       .update(books)
-      .set(bookData)
-      .where(and(eq(books.id, idParsed.data.id), eq(books.libraryId, idParsed.data.libraryId)))
+      // Drizzle skips undefined keys in .set(), which means a cleared coverUrl would
+      // leave the old value untouched. Force null so clearing actually clears.
+      .set({ ...bookData, coverUrl: bookData.coverUrl ?? null })
+      .where(and(eq(books.id, bookId), eq(books.libraryId, idParsed.data.libraryId)))
       .returning({ id: books.id })
     if (rows.length === 0) return null
 
-    await tx.delete(bookContributors).where(eq(bookContributors.bookId, idParsed.data.id))
+    await tx.delete(bookContributors).where(eq(bookContributors.bookId, bookId))
 
     if (validContributors.length > 0) {
       await tx.insert(bookContributors).values(validContributors)
@@ -152,8 +167,14 @@ export async function updateBookAction(
 
   if (!updated) return { ok: false, message: 'Book not found.' }
 
+  // If the user cleared the cover field, remove the stored object best-effort.
+  if (bookData.coverUrl === undefined) {
+    const supabase = await createServerClient()
+    await removeCover({ libraryId: bookData.libraryId, bookId, supabase })
+  }
+
   revalidateTag('library-autocomplete', 'max')
-  redirect(`/books/${idParsed.data.id}`)
+  redirect(`/books/${bookId}`)
 }
 
 export async function deleteBookAction(
