@@ -54,6 +54,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'covers.openlibrary.org' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      {
+        protocol: 'https',
+        hostname: supabaseHost,
+        pathname: '/storage/v1/object/public/book-covers/**',
+      },
     ],
   },
   async headers() {
