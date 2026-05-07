@@ -60,16 +60,21 @@ async function main() {
   const supabase = createServiceRoleClient()
 
   try {
+    // List bucket FIRST, then read DB. This ordering avoids a race where an
+    // upload landing mid-sweep would appear in the bucket listing but not in
+    // `referenced`, causing a false-positive orphan deletion. With this order:
+    // an upload after listing isn't seen here (next sweep handles it); an
+    // upload before the DB read has its row in `referenced` and is safe.
+    const folders = await listLibraryFolders(supabase)
+    const allObjects: string[] = []
+    for (const f of folders) allObjects.push(...(await listFolderObjects(supabase, f)))
+
     const referenced = new Set<string>()
     const rows = await db
       .select({ id: books.id, libraryId: books.libraryId })
       .from(books)
       .where(isNotNull(books.coverUrl))
     for (const r of rows) referenced.add(`${r.libraryId}/${r.id}.webp`)
-
-    const folders = await listLibraryFolders(supabase)
-    const allObjects: string[] = []
-    for (const f of folders) allObjects.push(...(await listFolderObjects(supabase, f)))
 
     const orphans = allObjects.filter((p) => !referenced.has(p))
     console.log(
