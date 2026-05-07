@@ -191,6 +191,10 @@ export async function deleteBookAction(
     tx.delete(books).where(and(eq(books.id, parsed.data.id), eq(books.libraryId, parsed.data.libraryId))),
   )
 
+  // Best-effort: remove any stored cover for this (library_id, book_id).
+  const supabase = await createServerClient()
+  await removeCover({ libraryId: parsed.data.libraryId, bookId: parsed.data.id, supabase })
+
   redirect('/books')
 }
 
