@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { UserCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logoutAction } from '@/lib/actions/auth'
 import { LibrarySwitcher } from '@/components/library/library-switcher'
@@ -17,10 +18,17 @@ export async function AppHeader({ displayName, email }: { displayName: string | 
           <LibrarySwitcher current={current} libraries={libraries} />
         </div>
         <div className="flex items-center gap-3">
-          <div className="hidden text-right text-sm md:block">
+          <Link href="/account" className="hidden text-right text-sm hover:opacity-75 md:block">
             <div className="font-medium">{displayName ?? email ?? 'You'}</div>
             {email ? <div className="text-xs text-muted-foreground">{email}</div> : null}
-          </div>
+          </Link>
+          <Link
+            href="/account"
+            aria-label="Account"
+            className="text-muted-foreground hover:text-foreground md:hidden"
+          >
+            <UserCircle2 className="h-6 w-6" />
+          </Link>
           <form action={logoutAction}>
             <Button type="submit" variant="outline" size="sm">Log out</Button>
           </form>

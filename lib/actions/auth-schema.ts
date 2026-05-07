@@ -25,5 +25,9 @@ export const resetPasswordSchema = z.object({
   password: z.string().min(12, 'Password must be at least 12 characters.'),
 })
 
+export const setPasswordSchema = z.object({
+  password: z.string().min(12, 'Password must be at least 12 characters.'),
+})
+
 // State shape for useActionState progressive enhancement
 export type ActionState = { ok: boolean; message?: string }

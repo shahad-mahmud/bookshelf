@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { sanitizeNext } from '@/lib/auth/redirect'
 import {
@@ -9,6 +10,7 @@ import {
   signUpSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  setPasswordSchema,
   type ActionState,
 } from './auth-schema'
 
@@ -63,6 +65,31 @@ export async function forgotPasswordAction(_prev: ActionState, formData: FormDat
     })
   }
   return { ok: true, message: 'If that email is registered, we have sent a reset link.' }
+}
+
+export async function setPasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = setPasswordSchema.safeParse(Object.fromEntries(formData))
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? 'Invalid password' }
+  }
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { ok: false, message: 'You are not signed in.' }
+  }
+  // Only first-time set is allowed here. Once a password identity exists,
+  // changes go through the email-link reset flow so a hijacked session
+  // can't silently overwrite a real password.
+  const hasEmailIdentity = user.identities?.some((i) => i.provider === 'email') ?? false
+  if (hasEmailIdentity) {
+    return { ok: false, message: 'Password is already set. Use Forgot password to change it.' }
+  }
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password })
+  if (error) {
+    return { ok: false, message: 'Could not set password. Please try again.' }
+  }
+  revalidatePath('/account')
+  return { ok: true, message: 'Password set. You can now log in with your email and password.' }
 }
 
 export async function resetPasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
