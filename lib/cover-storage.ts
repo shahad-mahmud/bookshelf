@@ -16,6 +16,8 @@ export function isCanonicalCoverUrl(args: { url: string; libraryId: string; book
 
 const MAX_BYTES = 5 * 1024 * 1024
 const PER_ATTEMPT_TIMEOUT_MS = 5_000
+// 3 total attempts (initial + 2 retries). Spec lists three backoffs (200/500/1000ms),
+// but the third never fires — we don't sleep after the final attempt — so it's elided.
 const RETRY_BACKOFFS_MS = [200, 500]
 const TRANSIENT_HTTP = new Set([408, 429, 500, 502, 503, 504])
 

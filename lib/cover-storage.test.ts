@@ -221,4 +221,75 @@ describe('fetchAndStoreCover', () => {
     })
     expect(result).toEqual({ ok: false, reason: 'storage_failed' })
   })
+
+  it('rejects oversized body when Content-Length is missing (streaming check)', async () => {
+    const big = Buffer.alloc(6 * 1024 * 1024, 0xff) // 6 MB > MAX_BYTES (5 MB)
+    // No content-length header — body length must be the gate.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'image/jpeg' }),
+      arrayBuffer: async () => big.buffer.slice(big.byteOffset, big.byteOffset + big.byteLength),
+    }))
+    const storage = makeStorage()
+    const result = await fetchAndStoreCover({
+      externalUrl: 'https://example.com/sneaky.jpg',
+      libraryId: LIBRARY, bookId: BOOK,
+      supabase: storage.client as unknown as never,
+    })
+    expect(result).toEqual({ ok: false, reason: 'too_large' })
+    expect(storage.calls.upload).toHaveLength(0)
+  })
+
+  it('rejects decompression bombs (exceeds limitInputPixels)', async () => {
+    // 5000x5000 = 25,000,000 pixels — over the 24M limit.
+    // Single-color PNG compresses to ~330KB, well under the 5MB body cap, so
+    // the size check passes and the decode step is what rejects the input.
+    const bomb = await sharp({
+      create: { width: 5000, height: 5000, channels: 3, background: '#ff0000' },
+    }).png().toBuffer()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'image/png', 'content-length': String(bomb.length) }),
+      arrayBuffer: async () => bomb.buffer.slice(bomb.byteOffset, bomb.byteOffset + bomb.byteLength),
+    }))
+    const storage = makeStorage()
+    const result = await fetchAndStoreCover({
+      externalUrl: 'https://example.com/bomb.png',
+      libraryId: LIBRARY, bookId: BOOK,
+      supabase: storage.client as unknown as never,
+    })
+    expect(result).toEqual({ ok: false, reason: 'wrong_type' })
+    expect(storage.calls.upload).toHaveLength(0)
+  })
+
+  it('rotates per EXIF and strips metadata', async () => {
+    // Tall 50x100 image with EXIF orientation=6 (means: needs 90° CW rotation, displayed as 100x50).
+    const oriented = await sharp({
+      create: { width: 50, height: 100, channels: 3, background: '#00ff00' },
+    })
+      .jpeg()
+      .withMetadata({ orientation: 6 })
+      .toBuffer()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'image/jpeg', 'content-length': String(oriented.length) }),
+      arrayBuffer: async () => oriented.buffer.slice(oriented.byteOffset, oriented.byteOffset + oriented.byteLength),
+    }))
+    const storage = makeStorage()
+    const result = await fetchAndStoreCover({
+      externalUrl: 'https://example.com/rotated.jpg',
+      libraryId: LIBRARY, bookId: BOOK,
+      supabase: storage.client as unknown as never,
+    })
+    expect(result.ok).toBe(true)
+    const out = await sharp(storage.calls.upload[0].body).metadata()
+    // After .rotate(), the 50x100-tall input with orientation=6 should be 100x50 wide.
+    expect(out.width).toBe(100)
+    expect(out.height).toBe(50)
+    // Metadata should not carry forward orientation.
+    expect(out.orientation).toBeUndefined()
+  })
 })
