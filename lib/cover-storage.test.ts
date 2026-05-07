@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import sharp from 'sharp'
 import { canonicalCoverUrl, isCanonicalCoverUrl, fetchAndStoreCover } from './cover-storage'
 

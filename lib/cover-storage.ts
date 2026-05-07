@@ -37,10 +37,16 @@ export async function fetchAndStoreCover(
   args: FetchAndStoreCoverArgs,
 ): Promise<{ ok: true; storageUrl: string } | { ok: false; reason: CoverFetchError }> {
   const fetched = await fetchWithRetry(args.externalUrl)
-  if (!fetched.ok) return fetched
+  if (!fetched.ok) {
+    logFailure(fetched.reason, args)
+    return fetched
+  }
 
   const decoded = await decodeAndResize(fetched.bytes)
-  if (!decoded.ok) return decoded
+  if (!decoded.ok) {
+    logFailure(decoded.reason, args)
+    return decoded
+  }
 
   const path = `${args.libraryId}/${args.bookId}.webp`
   const upload = await args.supabase.storage.from(COVER_BUCKET).upload(path, decoded.webp, {
@@ -49,16 +55,20 @@ export async function fetchAndStoreCover(
     upsert: true,
   })
   if (upload.error) {
-    console.error('[cover-storage] upload failed', {
-      libraryId: args.libraryId,
-      bookId: args.bookId,
-      externalHost: safeHost(args.externalUrl),
-      reason: 'storage_failed',
-    })
+    logFailure('storage_failed', args)
     return { ok: false, reason: 'storage_failed' }
   }
 
   return { ok: true, storageUrl: canonicalCoverUrl({ libraryId: args.libraryId, bookId: args.bookId }) }
+}
+
+function logFailure(reason: CoverFetchError, args: FetchAndStoreCoverArgs) {
+  console.error('[cover-storage] failed', {
+    libraryId: args.libraryId,
+    bookId: args.bookId,
+    externalHost: safeHost(args.externalUrl),
+    reason,
+  })
 }
 
 async function fetchWithRetry(
