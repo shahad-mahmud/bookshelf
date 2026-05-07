@@ -5,9 +5,10 @@ import { revalidateTag } from 'next/cache'
 import { eq, and } from 'drizzle-orm'
 import { dbAsUser } from '@/db/client-server'
 import { books, authors, bookContributors } from '@/db/schema/catalog'
+import { libraries } from '@/db/schema/libraries'
 import { bookSchema, bookIdSchema, isbnLookupSchema, parseContributors } from './book-schema'
 import { lookupIsbn } from '@/lib/openlibrary'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
 import {
   fetchAndStoreCover,
   isCanonicalCoverUrl,
@@ -63,8 +64,18 @@ export async function createBookAction(
   const { contributors: contributorInputs, ...bookData } = parsed.data
   const bookId = crypto.randomUUID()
 
+  // Verify library membership before any cover work. The cover upload uses
+  // service-role (Supabase Storage rejects ES256 user JWTs — see
+  // lib/supabase/admin.ts), so without this check a non-member could pollute
+  // storage by submitting a foreign libraryId. The libraries SELECT goes
+  // through fn_library_access RLS via dbAsUser, which is JWT-claim-aware.
+  const accessible = await db.query((tx) =>
+    tx.select({ id: libraries.id }).from(libraries).where(eq(libraries.id, bookData.libraryId)).limit(1),
+  )
+  if (accessible.length === 0) return { ok: false, message: 'Library not found.' }
+
   if (bookData.coverUrl && !isCanonicalCoverUrl({ url: bookData.coverUrl, libraryId: bookData.libraryId, bookId })) {
-    const supabase = await createServerClient()
+    const supabase = createServiceRoleClient()
     const result = await fetchAndStoreCover({
       externalUrl: bookData.coverUrl,
       libraryId: bookData.libraryId,
@@ -145,7 +156,7 @@ export async function updateBookAction(
   const previousCoverUrl = existing[0].coverUrl
 
   if (bookData.coverUrl && !isCanonicalCoverUrl({ url: bookData.coverUrl, libraryId, bookId })) {
-    const supabase = await createServerClient()
+    const supabase = createServiceRoleClient()
     const result = await fetchAndStoreCover({
       externalUrl: bookData.coverUrl,
       libraryId,
@@ -195,7 +206,7 @@ export async function updateBookAction(
     previousCoverUrl != null &&
     isCanonicalCoverUrl({ url: previousCoverUrl, libraryId, bookId })
   if (cleared && previousWasOurs) {
-    const supabase = await createServerClient()
+    const supabase = createServiceRoleClient()
     await removeCover({ libraryId, bookId, supabase })
   }
 
@@ -222,7 +233,7 @@ export async function deleteBookAction(
   if (deleted.length === 0) return { ok: false, message: 'Book not found.' }
 
   // Best-effort: remove any stored cover for this (library_id, book_id).
-  const supabase = await createServerClient()
+  const supabase = createServiceRoleClient()
   await removeCover({ libraryId: parsed.data.libraryId, bookId: parsed.data.id, supabase })
 
   redirect('/books')
